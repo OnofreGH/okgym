@@ -41,6 +41,6 @@ def send_messages(excel_file, message_template, image_path=None):
             time.sleep(5)  # Intervalo entre envíos
 
         except Exception as e:
-            print(f"❌ Error con el número en fila {i+2}: {e}")
+            print(f"❌ Error con el número en fila {i+2}: {type(e).__name__}: {e}")
 
     return enviados

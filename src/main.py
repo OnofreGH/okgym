@@ -1,4 +1,8 @@
 from ui import launch_app
 
+
 if __name__ == "__main__":
-    launch_app()
+    try:
+        launch_app()
+    except Exception as e:
+        print(f"[ERROR]: {type(e).__name__} - {(e)}")
