@@ -42,3 +42,88 @@ Phone Number: +51964167683
 Image: C:/Users/Carlos/Downloads/EyKlrLZWYAQYCxP.jpeg
 Caption: awaaaaa
 --------------------
+Date: 25/6/2025
+Time: 16:58
+Phone Number: +51964167683
+Image: C:/Users/Carlos/Downloads/EyKlrLZWYAQYCxP.jpeg
+Caption: 
+--------------------
+Date: 25/6/2025
+Time: 16:59
+Phone Number: +51964167683
+Message: awaaaa
+--------------------
+Date: 25/6/2025
+Time: 16:59
+Phone Number: +51964167683
+Image: C:/Users/Carlos/Downloads/EyKlrLZWYAQYCxP.jpeg
+Caption: 
+--------------------
+Date: 25/6/2025
+Time: 16:59
+Phone Number: +51964167683
+Message: awaaaa
+--------------------
+Date: 25/6/2025
+Time: 16:59
+Phone Number: +51964167683
+Image: C:/Users/Carlos/Downloads/EyKlrLZWYAQYCxP.jpeg
+Caption: 
+--------------------
+Date: 25/6/2025
+Time: 17:0
+Phone Number: +51964167683
+Message: awaaaa
+--------------------
+Date: 25/6/2025
+Time: 17:4
+Phone Number: +51964167683
+Image: C:/Users/Carlos/Downloads/perroperro.png
+Caption: Hola ZORAYDA SALOME espero que le este yendo bien el dia de hoy :D
+--------------------
+Date: 25/6/2025
+Time: 17:4
+Phone Number: +51964167683
+Image: C:/Users/Carlos/Downloads/perroperro.png
+Caption: Hola LISBETH DEL CARMEN espero que le este yendo bien el dia de hoy :D
+--------------------
+Date: 25/6/2025
+Time: 17:5
+Phone Number: +51964167683
+Image: C:/Users/Carlos/Downloads/perroperro.png
+Caption: Hola YOCELIN espero que le este yendo bien el dia de hoy :D
+--------------------
+Date: 25/6/2025
+Time: 17:7
+Phone Number: +51939316135
+Image: C:/Users/Carlos/Downloads/chavo.jpeg
+Caption: Hola ZORAYDA SALOME gracias por ser un kbro
+--------------------
+Date: 25/6/2025
+Time: 17:8
+Phone Number: +51939316135
+Image: C:/Users/Carlos/Downloads/chavo.jpeg
+Caption: Hola LISBETH DEL CARMEN gracias por ser un kbro
+--------------------
+Date: 25/6/2025
+Time: 17:8
+Phone Number: +51939316135
+Image: C:/Users/Carlos/Downloads/chavo.jpeg
+Caption: Hola YOCELIN gracias por ser un kbro
+--------------------
+Date: 25/6/2025
+Time: 17:27
+Phone Number: +51939316135
+Image: C:/Users/Carlos/Downloads/perroperro.png
+Caption: hola ZORAYDA SALOME carajo mrd ya acabo tu plan ctmr paga mrd
+--------------------
+Date: 25/6/2025
+Time: 17:54
+Phone Number: +51939316135
+Message: causayin
+--------------------
+Date: 25/6/2025
+Time: 17:55
+Phone Number: +51939316135
+Message: causayin
+--------------------

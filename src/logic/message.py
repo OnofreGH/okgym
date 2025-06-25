@@ -2,6 +2,7 @@ import pandas as pd
 import pywhatkit
 import time
 import os
+import pygetwindow as gw
 import pyautogui as pg
 from logic.utils import normalizar_numero
 
@@ -32,23 +33,38 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None):
                 )
                 time.sleep(10)
 
-            if pdf_path:
+            elif pdf_path:
                 print(f"Enviando PDF a {numero}")
-                time.sleep(3)
-                pg.click(705, 975)  # Coordenadas del clip (ajusta según tu pantalla)
-                time.sleep(1)
-                # Haz clic en el icono de documento (ajusta según tu pantalla)
-                pg.click(685, 635)
-                time.sleep(1)
-                # Escribe el nombre del PDF y presiona Enter
-                pg.write(os.path.basename(pdf_path))
-                time.sleep(1)
-                pg.press('enter')
-                time.sleep(3)
-                # Enviar el PDF
-                pg.press('enter')
-                time.sleep(3)
                 
+                # Abre el chat con mensaje usando pywhatkit
+                pywhatkit.sendwhatmsg_instantly(
+                    phone_no=numero,
+                    message=mensaje,
+                    wait_time=10,
+                    tab_close=False
+                )
+                time.sleep(12)
+
+                # Intentar enfocar ventana de WhatsApp Web
+                try:
+                    window = gw.getWindowsWithTitle("WhatsApp")[0]
+                    window.activate()
+                    time.sleep(1)
+                except Exception:
+                    print("⚠️ No se pudo activar la ventana de WhatsApp Web")
+
+                # Simular clic en botón de adjuntar (Ctrl + Shift + U abre la ventana para subir archivos)
+                pg.hotkey('ctrl', 'shift', 'u')
+                time.sleep(2)
+
+                # Escribe el path del PDF
+                pg.write(os.path.abspath(pdf_path))
+                time.sleep(1)
+                pg.press('enter')  # Abre el archivo
+                time.sleep(2)
+                pg.press('enter')  # Enviar
+                time.sleep(3)
+
             else:
                 print(f"Enviando texto a {numero}")
                 pywhatkit.sendwhatmsg_instantly(
