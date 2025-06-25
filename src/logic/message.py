@@ -3,7 +3,7 @@ import pywhatkit
 import time
 import os
 import pyautogui as pg
-from utils import normalizar_numero
+from logic.utils import normalizar_numero
 
 def send_messages(excel_file, message_template, image_path=None, pdf_path=None):
     df = pd.read_excel(excel_file, header=1)
@@ -22,7 +22,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None):
             numero = f"+{celular}"
 
             if image_path:
-                print(f"📷 Enviando imagen a {numero}")
+                print(f"Enviando imagen a {numero}")
                 pywhatkit.sendwhats_image(
                     receiver=numero,
                     img_path=image_path,
@@ -33,7 +33,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None):
                 time.sleep(10)
 
             if pdf_path:
-                print(f"📄 Enviando PDF a {numero}")
+                print(f"Enviando PDF a {numero}")
                 time.sleep(3)
                 pg.click(705, 975)  # Coordenadas del clip (ajusta según tu pantalla)
                 time.sleep(1)
@@ -50,7 +50,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None):
                 time.sleep(3)
                 
             else:
-                print(f"💬 Enviando texto a {numero}")
+                print(f"Enviando texto a {numero}")
                 pywhatkit.sendwhatmsg_instantly(
                     phone_no=numero,
                     message=mensaje,
@@ -62,6 +62,6 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None):
             time.sleep(5)  # Intervalo entre envíos
 
         except Exception as e:
-            print(f"❌ Error con el número en fila {i+2}: {type(e).__name__}: {e}")
+            print(f"Error con el número en fila {i+2}: {type(e).__name__}: {e}")
 
     return enviados

@@ -1,4 +1,4 @@
-from ui import launch_app
+from ui.ui import launch_app
 
 
 if __name__ == "__main__":
