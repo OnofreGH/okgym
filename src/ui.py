@@ -141,6 +141,8 @@ def send_in_thread():
                     time.sleep(1)
                     pg.press('enter')
                     time.sleep(3)
+                    pg.press('enter')
+                    time.sleep(3)
                 except Exception as e:
                     print(f"[❌ Error al adjuntar imagen]: {e}")
             
@@ -153,6 +155,8 @@ def send_in_thread():
                     time.sleep(1)
                     pg.write(os.path.basename(pdf_file))
                     time.sleep(1)
+                    pg.press('enter')
+                    time.sleep(3)
                     pg.press('enter')
                     time.sleep(3)
                 except Exception as e:
