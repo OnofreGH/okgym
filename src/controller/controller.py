@@ -24,8 +24,8 @@ def enviar_mensajes(excel_file, mensaje, image_path, pdf_path, status_label):
         messagebox.showerror("Error", str(e))
 
 def validar_y_enviar(excel_file, mensaje, status_label, message_text, iniciar_hilo):
-    if not excel_file or not mensaje.strip():
-        messagebox.showerror("Error", "Selecciona un archivo de Excel y escribe un mensaje.")
+    if not excel_file:
+        messagebox.showerror("Error", "Selecciona un archivo de Excel")
         return
 
     try:

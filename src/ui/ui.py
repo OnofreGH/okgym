@@ -12,6 +12,9 @@ excel_logo_img = None
 image_file = None
 pdf_file = None
 
+image_files = []
+pdf_files = []
+
 COLOR_BG = "#e5e7eb"       # gris suave
 COLOR_FG = "#1f2937"       # casi negro
 COLOR_PRIMARY = "#2563eb"  # azul moderno
@@ -27,12 +30,27 @@ def update_icon(importado, nombre_archivo=None):
         file_name_label.config(text="")
 
 def seleccionar_archivo(tipo, extensiones, label, set_var_func):
-    file_path = filedialog.askopenfilename(filetypes=[(tipo, extensiones)])
-    if file_path:
-        set_var_func(file_path)
-        label.config(text=os.path.basename(file_path), foreground=COLOR_FG)
+    multiple = tipo.lower().startswith("imagen") or tipo.lower().startswith("pdf")
+    
+    if multiple:
+        file_paths = filedialog.askopenfilenames(filetypes=[(tipo, extensiones)])
     else:
-        set_var_func(None)
+        file_paths = filedialog.askopenfilename(filetypes=[(tipo, extensiones)])
+
+    if file_paths:
+        set_var_func(file_paths)
+        if multiple:
+            count = len(file_paths)
+            nombres = "\n".join(os.path.basename(p) for p in file_paths)
+            plural_tipo = tipo.lower() + ("es" if tipo.lower().endswith("f") else "s")
+            label.config(
+                text=f"{count} {plural_tipo} seleccionad{'as' if tipo.lower() == 'imagen' else 'os'}:\n{nombres}",
+                foreground=COLOR_FG
+            )
+        else:
+            label.config(text=os.path.basename(file_paths), foreground=COLOR_FG)
+    else:
+        set_var_func([] if multiple else None)
         label.config(text=f"Sin {tipo.lower()}", foreground="gray")
 
 def crear_seccion_archivo(frame, tipo, extensiones, seleccionar_func, quitar_func, label_var, row, column):
@@ -67,24 +85,30 @@ def browse_file():
         update_icon(False)
 
 def browse_image():
-    seleccionar_archivo("Imagen", "*.png;*.jpg;*.jpeg", image_label, lambda path: globals().__setitem__('image_file', path))
+    seleccionar_archivo(
+        "Imagen", "*.png;*.jpg;*.jpeg", image_label,
+        lambda paths: globals().__setitem__('image_files', list(paths) if paths else [])
+    )
 
 def browse_pdf():
-    seleccionar_archivo("PDF", "*.pdf", pdf_label, lambda path: globals().__setitem__('pdf_file', path))
+    seleccionar_archivo(
+        "PDF", "*.pdf", pdf_label,
+        lambda paths: globals().__setitem__('pdf_files', list(paths) if paths else [])
+    )
 
 def remove_image():
-    globals()['image_file'] = None
+    globals()['image_files'] = []
     image_label.config(text="Sin imagen", fg="gray")
 
 def remove_pdf():
-    globals()['pdf_file'] = None
+    globals()['pdf_files'] = []
     pdf_label.config(text="Sin PDF", fg="gray")
 
 def send_in_thread():
     mensaje = message_text.get("1.0", tk.END).strip()
     thread = threading.Thread(
         target=enviar_mensajes,
-        args=(excel_file, mensaje, image_file, pdf_file, status_label)
+        args=(excel_file, mensaje, image_files, pdf_files, status_label)
     )
     thread.start()
 
