@@ -156,18 +156,105 @@ def launch_app():
 
     app = tk.Tk()
     app.title("WhatsApp Sender")
-    app.geometry("800x700")
+    app.geometry("1200x800")  # Aumentar ancho para el panel de instrucciones
     app.configure(bg=COLOR_BG)
 
-    app.columnconfigure(0, weight=1)
+    app.columnconfigure(0, weight=2)  # Columna principal (más ancha)
+    app.columnconfigure(1, weight=1)  # Columna de instrucciones (menos ancha)
     app.rowconfigure(0, weight=1)
 
+    # --- PANEL PRINCIPAL (IZQUIERDA) ---
     main_frame = tk.Frame(app, bg=COLOR_BG)
-    main_frame.grid(sticky="nsew", padx=20, pady=20)
+    main_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
     for i in range(10):
         main_frame.rowconfigure(i, weight=1)
     main_frame.columnconfigure(0, weight=1)
 
+    # --- PANEL DE INSTRUCCIONES (DERECHA) ---
+    instructions_frame = tk.Frame(app, bg="white", relief="solid", bd=1)
+    instructions_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 20), pady=20)
+    instructions_frame.columnconfigure(0, weight=1)
+
+    # Título del panel de instrucciones
+    tk.Label(instructions_frame, text="📋 Cómo usar el programa", 
+             font=("Segoe UI", 12, "bold"), bg="white", fg=COLOR_FG).pack(pady=10, padx=10, anchor="w")
+
+    # Crear un frame con scroll para las instrucciones
+    canvas = tk.Canvas(instructions_frame, bg="white", highlightthickness=0)
+    scrollbar = tk.Scrollbar(instructions_frame, orient="vertical", command=canvas.yview)
+    scrollable_frame = tk.Frame(canvas, bg="white")
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    # Instrucciones paso a paso
+    instrucciones = [
+        (" 1 Seleccionar archivo Excel", [
+            "• Ingresa un archivo Excel (.xls o .xlsx) se convierte automáticamente."
+            "• Verifica que aparezca el ícono ✅"
+        ]),
+        (" 2 Escribir mensaje", [
+            "• Escribe tu mensaje en el cuadro de texto",
+            "• Usa variables: {nombre}, {fecha_fin}",
+            "• Ejemplo: 'Hola {nombre}, tu membresía vence el {fecha_fin}'"
+        ]),
+        (" 3 Adjuntar archivos (opcional)", [
+            "• Selecciona imágenes (.png, .jpg, .jpeg)",
+            "• Selecciona PDFs si necesitas",
+            "• Puedes adjuntar múltiples archivos"
+        ]),
+        (" 4 Previsualizar", [
+            "• Haz clic en 'Previsualizar'",
+            "• Revisa cómo se verá el mensaje",
+            "• Verifica que las variables se muestren correctamente"
+        ]),
+        (" 5 Enviar mensajes", [
+            "• Haz clic en 'Enviar mensajes'",
+            "• Se abrirá WhatsApp Web automáticamente",
+            "• IMPORTANTE: Tener WhatsApp Web abierto con la cuenta de la empresa",
+            "• Espera a que se envíen todos los mensajes",
+        ])
+    ]
+
+    for titulo, pasos in instrucciones:
+        # Título de cada sección
+        titulo_label = tk.Label(scrollable_frame, text=titulo, 
+                               font=("Segoe UI", 10, "bold"), bg="white", fg=COLOR_PRIMARY)
+        titulo_label.pack(anchor="w", padx=10, pady=(10, 5))
+        
+        # Pasos de cada sección
+        for paso in pasos:
+            paso_label = tk.Label(scrollable_frame, text=paso, 
+                                 font=("Segoe UI", 9), bg="white", fg=COLOR_FG, 
+                                 wraplength=250, justify="left")
+            paso_label.pack(anchor="w", padx=20, pady=1)
+
+    # Notas importantes
+    tk.Label(scrollable_frame, text="⚠️ Notas importantes", 
+             font=("Segoe UI", 10, "bold"), bg="white", fg="#ef4444").pack(anchor="w", padx=10, pady=(15, 5))
+
+    notas = [
+        "• Mantén WhatsApp Web abierto durante el envío",
+        "• No uses el mouse mientras se envían mensajes",
+        "• Los números inválidos se omiten automáticamente",
+        "• Archivos .xls se convierten a .xlsx automáticamente"
+    ]
+
+    for nota in notas:
+        nota_label = tk.Label(scrollable_frame, text=nota, 
+                             font=("Segoe UI", 9), bg="white", fg="#ef4444", 
+                             wraplength=250, justify="left")
+        nota_label.pack(anchor="w", padx=20, pady=1)
+
+    canvas.pack(side="left", fill="both", expand=True, padx=(0, 10))
+    scrollbar.pack(side="right", fill="y")
+
+    # --- RESTO DEL CÓDIGO DEL PANEL PRINCIPAL (sin cambios) ---
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     logo_path = os.path.join(base_dir, "assets", "ExcelLogo.png")
 
