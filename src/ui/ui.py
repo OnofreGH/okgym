@@ -78,8 +78,28 @@ def browse_file():
     global excel_file
     filename = filedialog.askopenfilename(filetypes=[("Archivos de Excel", "*.xls *.xlsx")])
     if filename:
-        excel_file = filename
-        update_icon(True, filename)
+        # Verificar si es .xls y convertir automáticamente
+        if filename.lower().endswith('.xls'):
+            try:
+                from logic.logic import convertir_xls_a_xlsx
+                messagebox.showinfo("Conversión", "Archivo .xls detectado. Convirtiendo automáticamente a .xlsx...")
+                
+                # Convertir el archivo y actualizar la variable excel_file
+                archivo_convertido = convertir_xls_a_xlsx(filename)
+                excel_file = archivo_convertido
+                
+                # Actualizar la interfaz con el archivo convertido
+                update_icon(True, archivo_convertido)
+                messagebox.showinfo("Éxito", f"Archivo convertido exitosamente:\n{os.path.basename(archivo_convertido)}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo convertir el archivo:\n{e}")
+                excel_file = None
+                update_icon(False)
+        else:
+            # Si es .xlsx, usar directamente
+            excel_file = filename
+            update_icon(True, filename)
     else:
         excel_file = None
         update_icon(False)
