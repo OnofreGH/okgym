@@ -1,8 +1,9 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from PIL import Image, ImageTk
 import os
 import threading
+import sys
 
 from controller.controller import enviar_mensajes, validar_y_enviar, obtener_mensaje_previsualizacion
 
@@ -15,11 +16,196 @@ pdf_file = None
 image_files = []
 pdf_files = []
 
+# Variables para control de envío
+app_running = True
+current_thread = None
+sending_paused = False
+last_sent_index = 0  # Índice del último contacto enviado
+total_contacts = 0   # Total de contactos válidos
+progress_bar = None
+progress_label = None
+pause_button = None
+
 COLOR_BG = "#e5e7eb"       # gris suave
 COLOR_FG = "#1f2937"       # casi negro
 COLOR_PRIMARY = "#2563eb"  # azul moderno
 COLOR_ACCENT = "#dbeafe"   # fondo de botón activo
 FONT_BASE = ("Segoe UI", 10)
+
+def on_closing():
+    """Maneja el cierre de la aplicación"""
+    global app_running, current_thread
+    
+    # Preguntar confirmación si hay un hilo ejecutándose
+    if current_thread and current_thread.is_alive():
+        result = messagebox.askyesno(
+            "Confirmar cierre", 
+            "Hay un proceso de envío en curso. ¿Estás seguro de que quieres cerrar?\n\nEsto detendrá el envío de mensajes."
+        )
+        if not result:
+            return
+    
+    # Marcar que la aplicación se está cerrando
+    app_running = False
+    
+    # Intentar terminar hilos activos
+    if current_thread and current_thread.is_alive():
+        print("🛑 Cerrando aplicación, deteniendo proceso de envío...")
+        current_thread.join(timeout=2)
+    
+    # Cerrar la aplicación
+    app.quit()
+    app.destroy()
+    os._exit(0)
+
+def toggle_pause():
+    """Alterna entre pausar y reanudar el envío"""
+    global sending_paused
+    
+    if sending_paused:
+        # Reanudar envío
+        sending_paused = False
+        pause_button.config(text="⏸️ Pausar", bg="#ef4444", activebackground="#fecaca")
+        status_label.config(text=f"▶️ Reanudando envío desde contacto {last_sent_index + 1}...")
+        # Mantener interfaz bloqueada durante la reanudación
+        lock_interface()
+    else:
+        # Pausar envío - puede permitir edición del mensaje si se desea
+        sending_paused = True
+        pause_button.config(text="▶️ Reanudar", bg="#10b981", activebackground="#a7f3d0")
+        status_label.config(text=f"⏸️ Envío pausado en contacto {last_sent_index}. Haz clic en Reanudar para continuar.")
+        # Opcional: desbloquear mensaje durante la pausa para permitir edición
+        # unlock_interface()
+
+def update_progress(current, total, contact_name=""):
+    """Actualiza la barra de progreso y el contador"""
+    global last_sent_index
+    
+    last_sent_index = current
+    progress = (current / total) * 100 if total > 0 else 0
+    
+    # Actualizar barra de progreso
+    if progress_bar:
+        progress_bar['value'] = progress
+    
+    # Actualizar etiqueta de progreso
+    if progress_label:
+        if contact_name:
+            progress_label.config(text=f"📤 Enviando a: {contact_name} ({current}/{total})")
+        else:
+            progress_label.config(text=f"📊 Progreso: {current}/{total} ({progress:.1f}%)")
+
+def lock_interface():
+    """Bloquea la interfaz durante el envío"""
+    if message_text:
+        message_text.config(state='disabled')
+    
+    # También bloquear otros controles críticos
+    send_button.config(state='disabled')
+    browse_button.config(state='disabled')
+    preview_button.config(state='disabled')
+
+def unlock_interface():
+    """Desbloquea la interfaz después del envío"""
+    if message_text:
+        message_text.config(state='normal')
+    
+    # Desbloquear otros controles
+    send_button.config(state='normal')
+    browse_button.config(state='normal')
+    preview_button.config(state='normal')
+
+def disable_all_widgets(parent):
+    """Deshabilita recursivamente todos los widgets excepto el botón de pausa"""
+    for child in parent.winfo_children():
+        if hasattr(child, 'winfo_children'):
+            disable_all_widgets(child)
+        
+        # No deshabilitar el botón de pausa ni la barra de progreso
+        if child not in [pause_button, progress_bar, progress_label]:
+            try:
+                if hasattr(child, 'config'):
+                    child.config(state='disabled')
+            except tk.TclError:
+                pass  # Algunos widgets no tienen estado
+
+def enable_all_widgets(parent):
+    """Habilita recursivamente todos los widgets"""
+    for child in parent.winfo_children():
+        if hasattr(child, 'winfo_children'):
+            enable_all_widgets(child)
+        
+        try:
+            if hasattr(child, 'config'):
+                child.config(state='normal')
+        except tk.TclError:
+            pass  # Algunos widgets no tienen estado
+
+def lock_interface_complete():
+    """Bloquea completamente la interfaz durante el envío"""
+    # Bloquear solo los controles críticos
+    if message_text:
+        message_text.config(state='disabled')
+    
+    send_button.config(state='disabled')
+    browse_button.config(state='disabled')
+    preview_button.config(state='disabled')
+    
+    # Cambiar cursor para indicar que está ocupado
+    app.config(cursor="wait")
+
+def unlock_interface_complete():
+    """Desbloquea completamente la interfaz después del envío"""
+    if message_text:
+        message_text.config(state='normal')
+    
+    send_button.config(state='normal')
+    browse_button.config(state='normal')
+    preview_button.config(state='normal')
+    
+    # Restaurar cursor normal
+    app.config(cursor="")
+
+def reset_progress():
+    """Resetea el progreso y oculta los controles"""
+    global last_sent_index, sending_paused, total_contacts
+    
+    last_sent_index = 0
+    sending_paused = False
+    total_contacts = 0
+    
+    # Usar desbloqueo completo
+    unlock_interface_complete()
+    
+    if progress_bar:
+        progress_bar['value'] = 0
+        progress_bar.grid_remove()
+    
+    if progress_label:
+        progress_label.config(text="")
+        progress_label.grid_remove()
+    
+    if pause_button:
+        pause_button.grid_remove()
+
+def show_progress_controls(total):
+    """Muestra los controles de progreso y bloquea la interfaz"""
+    global total_contacts
+    
+    total_contacts = total
+    
+    # Usar bloqueo completo
+    lock_interface_complete()
+    
+    if progress_bar:
+        progress_bar.grid(row=11, column=0, sticky="ew", pady=(5, 0))
+    
+    if progress_label:
+        progress_label.grid(row=12, column=0, sticky="w", pady=(2, 0))
+    
+    if pause_button:
+        pause_button.config(text="⏸️ Pausar", bg="#ef4444", activebackground="#fecaca")
+        pause_button.grid(row=13, column=0, sticky="w", pady=(5, 0))
 
 def update_icon(importado, nombre_archivo=None):
     if importado and nombre_archivo:
@@ -125,16 +311,63 @@ def remove_pdf():
     pdf_label.config(text="Sin PDF", fg="gray")
 
 def send_in_thread():
+    """Ejecuta el envío en un hilo separado con control de cierre"""
+    global current_thread, app_running, sending_paused, last_sent_index
+    
     mensaje = message_text.get("1.0", tk.END).strip()
-    thread = threading.Thread(
-        target=enviar_mensajes,
-        args=(excel_file, mensaje, image_files, pdf_files, status_label)
-    )
-    thread.start()
+    
+    def envio_controlado():
+        try:
+            # Función que verifica si debe continuar
+            def should_continue():
+                return app_running and not sending_paused
+            
+            # Función para actualizar progreso desde el controlador
+            def update_progress_callback(current, total, contact_name=""):
+                if app_running:
+                    app.after(0, lambda: update_progress(current, total, contact_name))
+            
+            # Pasar todas las funciones de callback al controlador
+            enviar_mensajes(
+                excel_file, mensaje, image_files, pdf_files, status_label,
+                app_running_check=lambda: app_running,
+                pause_check=lambda: not sending_paused,
+                progress_callback=update_progress_callback,
+                start_index=last_sent_index
+            )
+        except Exception as e:
+            if app_running:
+                print(f"Error en envío: {e}")
+        finally:
+            # Limpiar la referencia al hilo y ocultar controles
+            if app_running:
+                current_thread = None
+                app.after(0, reset_progress)
+    
+    current_thread = threading.Thread(target=envio_controlado, daemon=True)
+    current_thread.start()
 
 def send():
+    """Validar y enviar mensajes"""
+    global current_thread, last_sent_index
+    
+    # Verificar si ya hay un proceso ejecutándose
+    if current_thread and current_thread.is_alive():
+        messagebox.showwarning("Proceso en curso", "Ya hay un proceso de envío ejecutándose. Espera a que termine o usa el botón de pausa.")
+        return
+    
     mensaje = message_text.get("1.0", tk.END).strip()
-    validar_y_enviar(excel_file, mensaje, status_label, message_text, send_in_thread)
+    
+    # Verificar que hay mensaje antes de continuar
+    if not mensaje:
+        messagebox.showwarning("Mensaje vacío", "Por favor escribe un mensaje antes de enviar.")
+        return
+    
+    # Si no es una reanudación, resetear el índice
+    if not (current_thread and last_sent_index > 0):
+        last_sent_index = 0
+    
+    validar_y_enviar(excel_file, mensaje, status_label, message_text, send_in_thread, show_progress_controls)
 
 def preview_message():
     if not excel_file:
@@ -149,24 +382,31 @@ def preview_message():
 
 def launch_app():
     global icon_label, file_name_label, message_text, excel_logo_img, status_label
-    global image_label, pdf_label, image_file, pdf_file
+    global image_label, pdf_label, image_file, pdf_file, app, app_running
+    global progress_bar, progress_label, pause_button
+    global send_button, browse_button, preview_button  # Agregar referencias a botones
 
+    # Reiniciar variables de control
+    app_running = True
     image_file = None
     pdf_file = None
 
     app = tk.Tk()
     app.title("WhatsApp Sender")
-    app.geometry("1200x800")  # Aumentar ancho para el panel de instrucciones
+    app.geometry("1200x800")
     app.configure(bg=COLOR_BG)
 
-    app.columnconfigure(0, weight=2)  # Columna principal (más ancha)
-    app.columnconfigure(1, weight=1)  # Columna de instrucciones (menos ancha)
+    # Configurar el manejo del cierre de ventana
+    app.protocol("WM_DELETE_WINDOW", on_closing)
+
+    app.columnconfigure(0, weight=2)
+    app.columnconfigure(1, weight=1)
     app.rowconfigure(0, weight=1)
 
     # --- PANEL PRINCIPAL (IZQUIERDA) ---
     main_frame = tk.Frame(app, bg=COLOR_BG)
     main_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
-    for i in range(10):
+    for i in range(15):  # Aumentado para acomodar nuevos controles
         main_frame.rowconfigure(i, weight=1)
     main_frame.columnconfigure(0, weight=1)
 
@@ -254,14 +494,21 @@ def launch_app():
     canvas.pack(side="left", fill="both", expand=True, padx=(0, 10))
     scrollbar.pack(side="right", fill="y")
 
-    # --- RESTO DEL CÓDIGO DEL PANEL PRINCIPAL (sin cambios) ---
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    logo_path = os.path.join(base_dir, "assets", "ExcelLogo.png")
-
+    # --- RESTO DEL CÓDIGO DEL PANEL PRINCIPAL ---
+    # Buscar el logo de Excel - compatible con PyInstaller
     try:
-        img = Image.open(logo_path)
-        img = img.resize((48, 48), Image.LANCZOS)
-        excel_logo_img = ImageTk.PhotoImage(img)
+        if hasattr(sys, '_MEIPASS'):
+            logo_path = os.path.join(sys._MEIPASS, "assets", "ExcelLogo.png")
+        else:
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            logo_path = os.path.join(base_dir, "assets", "ExcelLogo.png")
+        
+        if os.path.exists(logo_path):
+            img = Image.open(logo_path)
+            img = img.resize((48, 48), Image.LANCZOS)
+            excel_logo_img = ImageTk.PhotoImage(img)
+        else:
+            excel_logo_img = None
     except Exception as e:
         print(f"No se pudo cargar la imagen: {e}")
         excel_logo_img = None
@@ -275,22 +522,29 @@ def launch_app():
     file_name_label = tk.Label(main_frame, text="", font=("Segoe UI", 9), bg=COLOR_BG, fg="gray")
     file_name_label.grid(row=3, column=0, sticky="w")
 
-    tk.Button(main_frame, text="Seleccionar Excel", command=browse_file,
+    # Guardar referencia al botón de seleccionar archivo
+    browse_button = tk.Button(main_frame, text="Seleccionar Excel", command=browse_file,
               bg=COLOR_PRIMARY, fg="white", font=FONT_BASE, bd=0, padx=12, pady=6,
-              activebackground=COLOR_ACCENT).grid(row=4, column=0, sticky="w", pady=5)
+              activebackground=COLOR_ACCENT)
+    browse_button.grid(row=4, column=0, sticky="w", pady=5)
 
     tk.Label(main_frame, text="Mensaje a enviar", font=FONT_BASE, bg=COLOR_BG, fg=COLOR_FG).grid(row=5, column=0, sticky="w", pady=(10, 2))
 
+    # Cuadro de texto del mensaje con configuración inicial
     message_text = tk.Text(main_frame, height=10, font=("Segoe UI", 10), bd=1, relief="flat", wrap="word")
     message_text.grid(row=6, column=0, sticky="nsew")
 
-    tk.Button(main_frame, text="Previsualizar", command=preview_message,
+    # Guardar referencia al botón de previsualizar
+    preview_button = tk.Button(main_frame, text="Previsualizar", command=preview_message,
               bg="#6b7280", fg="white", font=FONT_BASE, bd=0, padx=10, pady=5,
-              activebackground="#9ca3af").grid(row=7, column=0, sticky="w", pady=5)
+              activebackground="#9ca3af")
+    preview_button.grid(row=7, column=0, sticky="w", pady=5)
 
-    tk.Button(main_frame, text="Enviar mensajes", command=send,
+    # Guardar referencia al botón de enviar
+    send_button = tk.Button(main_frame, text="Enviar mensajes", command=send,
               bg=COLOR_PRIMARY, fg="white", font=FONT_BASE, bd=0, padx=10, pady=7,
-              activebackground=COLOR_ACCENT).grid(row=8, column=0, sticky="w", pady=5)
+              activebackground=COLOR_ACCENT)
+    send_button.grid(row=8, column=0, sticky="w", pady=5)
 
     frame_extra = tk.Frame(main_frame, bg=COLOR_BG)
     frame_extra.grid(row=9, column=0, sticky="nsew")
@@ -307,5 +561,34 @@ def launch_app():
 
     status_label = tk.Label(main_frame, text="", font=("Segoe UI", 9), fg=COLOR_PRIMARY, bg=COLOR_BG)
     status_label.grid(row=10, column=0, sticky="w", pady=10)
+
+    # --- NUEVOS CONTROLES DE PROGRESO ---
+    # Barra de progreso (inicialmente oculta)
+    progress_bar = ttk.Progressbar(main_frame, mode='determinate', length=400)
+    # No hacer grid aquí, se mostrará cuando sea necesario
+
+    # Etiqueta de progreso (inicialmente oculta)
+    progress_label = tk.Label(main_frame, text="", font=("Segoe UI", 9), fg=COLOR_FG, bg=COLOR_BG)
+    # No hacer grid aquí, se mostrará cuando sea necesario
+
+    # Botón de pausa/reanudar (inicialmente oculto)
+    pause_button = tk.Button(main_frame, text="⏸️ Pausar", command=toggle_pause,
+                            bg="#ef4444", fg="white", font=FONT_BASE, bd=0, padx=10, pady=5,
+                            activebackground="#fecaca")
+    # No hacer grid aquí, se mostrará cuando sea necesario
+
+    # Configurar teclas para evitar interferencias (opcional)
+    def on_key_press(event):
+        """Intercepta teclas durante el envío para evitar interferencias"""
+        if message_text.cget('state') == 'disabled':
+            # Si el texto está bloqueado, no permitir ninguna tecla
+            return "break"
+        return None
+    
+    # Bind del evento de teclado
+    app.bind('<Key>', on_key_press)
+
+    # Enfocar el cuadro de mensaje al inicio
+    message_text.focus_set()
 
     app.mainloop()

@@ -47,3 +47,8 @@ okgym-whatsapp-app
 
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+
+pip install -U pyinstaller
+pip install pandas pywhatkit pyautogui pyexcel pyexcel-xls pyexcel-xlsx Pillow openpyxl xlrd
+python build.py
