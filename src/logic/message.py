@@ -64,11 +64,30 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
             if app_running_check and not app_running_check():
                 break
 
-            if image_path:
-                if isinstance(image_path, str):
-                    image_path = [image_path]
+            # Determinar qué archivos enviar
+            tiene_imagenes = image_path and len(image_path) > 0
+            tiene_pdfs = pdf_path and len(pdf_path) > 0
 
-                print(f"Enviando {len(image_path)} imagen(es) a {numero}")
+            if tiene_imagenes or tiene_pdfs:
+                # Normalizar a listas
+                if tiene_imagenes:
+                    if isinstance(image_path, str):
+                        image_paths = [image_path]
+                    else:
+                        image_paths = list(image_path)
+                else:
+                    image_paths = []
+
+                if tiene_pdfs:
+                    if isinstance(pdf_path, str):
+                        pdf_paths = [pdf_path]
+                    else:
+                        pdf_paths = list(pdf_path)
+                else:
+                    pdf_paths = []
+
+                total_archivos = len(image_paths) + len(pdf_paths)
+                print(f"Enviando {len(image_paths)} imagen(es) y {len(pdf_paths)} PDF(s) a {numero} (Total: {total_archivos} archivos)")
 
                 # Verificar pausa antes de abrir WhatsApp
                 while pause_check and not pause_check():
@@ -115,115 +134,95 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                 if app_running_check and not app_running_check():
                     break
 
-                # Clic en ícono de clip (adjuntar)
-                pg.click(x=485, y=700)  # Actualiza según tu pantalla
-                time.sleep(1)
-                
-                # Verificar pausa
-                while pause_check and not pause_check():
-                    if app_running_check and not app_running_check():
-                        return enviados
-                    time.sleep(0.5)
-
-                # Clic en ícono de imagen
-                pg.click(x=470, y=455)  # Actualiza según tu pantalla
-                time.sleep(2)
-
-                # Escribir paths separados por espacio y entre comillas
-                all_paths = " ".join(f'"{os.path.abspath(p)}"' for p in image_path)
-                pg.write(all_paths)
-                time.sleep(2)
-
-                # Verificar pausa antes de enviar
-                while pause_check and not pause_check():
-                    if app_running_check and not app_running_check():
-                        return enviados
-                    time.sleep(0.5)
-
-                pg.press('enter')  # Abrir imágenes
-                time.sleep(3)
-
-                pg.press('enter')  # Enviar mensaje con imágenes
-                time.sleep(4)
-
-                # Cierra la pestaña de WhatsApp Web
-                pg.hotkey('ctrl', 'w')
-                print("Ventana de WhatsApp cerrada.")
-
-            elif pdf_path:
-                # Lógica similar para PDFs con verificaciones de pausa
-                if isinstance(pdf_path, str):
-                    pdf_path = [pdf_path]
-
-                print(f"Enviando {len(pdf_path)} PDF(s) a {numero}")
-
-                # Verificar pausa
-                while pause_check and not pause_check():
-                    if app_running_check and not app_running_check():
-                        return enviados
-                    time.sleep(0.5)
-
-                pywhatkit.sendwhatmsg_instantly(
-                    phone_no=numero,
-                    message=mensaje,
-                    wait_time=10,
-                    tab_close=False
-                )
-                
-                # Verificar durante la espera con posibilidad de pausa
-                for _ in range(10):
+                # --- ENVIAR IMÁGENES PRIMERO (si las hay) ---
+                if tiene_imagenes:
+                    print(f"  📸 Enviando {len(image_paths)} imagen(es)...")
+                    
+                    # Clic en ícono de clip (adjuntar)
+                    pg.click(x=485, y=700)
+                    time.sleep(1)
+                    
+                    # Verificar pausa
                     while pause_check and not pause_check():
                         if app_running_check and not app_running_check():
                             return enviados
                         time.sleep(0.5)
+
+                    # Clic en ícono de imagen
+                    pg.click(x=470, y=455)
+                    time.sleep(2)
+
+                    # Escribir paths de imágenes separados por espacio y entre comillas
+                    all_image_paths = " ".join(f'"{os.path.abspath(p)}"' for p in image_paths)
+                    pg.write(all_image_paths)
+                    time.sleep(2)
+
+                    # Verificar pausa antes de enviar
+                    while pause_check and not pause_check():
+                        if app_running_check and not app_running_check():
+                            return enviados
+                        time.sleep(0.5)
+
+                    pg.press('enter')  # Abrir imágenes
+                    time.sleep(3)
+
+                    pg.press('enter')  # Enviar imágenes
+                    time.sleep(4)
+
+                    print(f"  ✅ Imágenes enviadas")
+
+                # --- ENVIAR PDFs DESPUÉS (si los hay) ---
+                if tiene_pdfs:
+                    print(f"  📄 Enviando {len(pdf_paths)} PDF(s)...")
                     
-                    if app_running_check and not app_running_check():
-                        break
+                    # Verificar pausa antes de enviar PDFs
+                    while pause_check and not pause_check():
+                        if app_running_check and not app_running_check():
+                            return enviados
+                        time.sleep(0.5)
+
+                    # Esperar un poco entre envíos de diferentes tipos
+                    time.sleep(2)
+
+                    # Clic en ícono de clip (adjuntar)
+                    pg.click(x=485, y=700)
                     time.sleep(1)
+                    
+                    # Verificar pausa
+                    while pause_check and not pause_check():
+                        if app_running_check and not app_running_check():
+                            return enviados
+                        time.sleep(0.5)
 
-                if app_running_check and not app_running_check():
-                    break
+                    # Clic en ícono de documento
+                    pg.click(x=470, y=424)
+                    time.sleep(2)
 
-                # Activar ventana de WhatsApp Web
-                try:
-                    window = gw.getWindowsWithTitle("WhatsApp")[0]
-                    window.activate()
-                    time.sleep(1)
-                except Exception:
-                    print("No se pudo activar la ventana de WhatsApp Web")
+                    # Escribir paths de PDFs separados por espacio y entre comillas
+                    all_pdf_paths = " ".join(f'"{os.path.abspath(p)}"' for p in pdf_paths)
+                    pg.write(all_pdf_paths)
+                    time.sleep(2)
 
-                # Verificaciones de pausa en cada paso...
-                while pause_check and not pause_check():
-                    if app_running_check and not app_running_check():
-                        return enviados
-                    time.sleep(0.5)
+                    # Verificar pausa antes de enviar
+                    while pause_check and not pause_check():
+                        if app_running_check and not app_running_check():
+                            return enviados
+                        time.sleep(0.5)
 
-                # Clic en ícono de clip (adjuntar)
-                pg.click(x=485, y=700)  # Actualiza según tu pantalla
-                time.sleep(1)
-                # Clic en ícono de documento
-                pg.click(x=470, y=424)  # Actualiza según tu pantalla
-                time.sleep(2)
+                    pg.press('enter')  # Abrir PDFs
+                    time.sleep(3)
+                    pg.press('enter')  # Enviar PDFs
+                    time.sleep(4)
 
-                # Escribir paths separados por espacio y entre comillas
-                all_paths = " ".join(f'"{os.path.abspath(p)}"' for p in pdf_path)
-                pg.write(all_paths)
-                time.sleep(2)
+                    print(f"  ✅ PDFs enviados")
 
-                while pause_check and not pause_check():
-                    if app_running_check and not app_running_check():
-                        return enviados
-                    time.sleep(0.5)
-
-                pg.press('enter')  # Abrir los PDFs
-                time.sleep(3)
-                pg.press('enter')  # Enviar los PDFs
-                time.sleep(4)
+                # Cerrar la pestaña de WhatsApp Web
                 pg.hotkey('ctrl', 'w')
-                print("Ventana de WhatsApp cerrada.")
+                print("  🔒 Ventana de WhatsApp cerrada.")
 
             else:
-                print(f"Enviando texto a {numero}")
+                # Solo enviar texto si no hay archivos adjuntos
+                print(f"Enviando solo texto a {numero}")
                 
                 # Verificar pausa antes de enviar texto
                 while pause_check and not pause_check():
@@ -239,6 +238,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                 )
 
             enviados += 1
+            print(f"  ✅ Mensaje completo enviado a {nombre}")
             
             # Verificar antes del intervalo entre envíos
             if app_running_check and not app_running_check():
@@ -256,7 +256,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                 time.sleep(1)
 
         except Exception as e:
-            print(f"Error con el contacto {contacto_idx + 1}: {type(e).__name__}: {e}")
+            print(f"❌ Error con el contacto {contacto_idx + 1} ({nombre}): {type(e).__name__}: {e}")
             # Continuar con el siguiente contacto
 
     return enviados

@@ -363,6 +363,22 @@ def send():
         messagebox.showwarning("Mensaje vacío", "Por favor escribe un mensaje antes de enviar.")
         return
     
+    # Mostrar información de qué se va a enviar
+    archivos_info = []
+    if image_files:
+        archivos_info.append(f"{len(image_files)} imagen(es)")
+    if pdf_files:
+        archivos_info.append(f"{len(pdf_files)} PDF(s)")
+    
+    if archivos_info:
+        archivos_texto = " y ".join(archivos_info)
+        confirmacion = messagebox.askyesno(
+            "Confirmar envío", 
+            f"Se enviará:\n• Mensaje de texto\n• {archivos_texto}\n\n¿Continuar con el envío?"
+        )
+        if not confirmacion:
+            return
+    
     # Si no es una reanudación, resetear el índice
     if not (current_thread and last_sent_index > 0):
         last_sent_index = 0
@@ -446,7 +462,8 @@ def launch_app():
         (" 3 Adjuntar archivos (opcional)", [
             "• Selecciona imágenes (.png, .jpg, .jpeg)",
             "• Selecciona PDFs si necesitas",
-            "• Puedes adjuntar múltiples archivos"
+            "• Puedes adjuntar múltiples archivos de cada tipo",
+            "• Se pueden enviar imágenes Y PDFs al mismo tiempo"
         ]),
         (" 4 Previsualizar", [
             "• Haz clic en 'Previsualizar'",
