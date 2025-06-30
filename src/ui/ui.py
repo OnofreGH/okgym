@@ -248,17 +248,21 @@ def crear_seccion_archivo(frame, tipo, extensiones, seleccionar_func, quitar_fun
     btn_frame = tk.Frame(section, bg=COLOR_BG)
     btn_frame.pack(anchor="w", pady=2, fill="x")
 
-    tk.Button(btn_frame, text=f"Seleccionar {tipo.lower()}", command=seleccionar_func,
+    btn_select = tk.Button(btn_frame, text=f"Seleccionar {tipo.lower()}", command=seleccionar_func,
               bg=COLOR_PRIMARY, fg="white", font=FONT_BASE, bd=0, padx=10, pady=4,
-              activebackground=COLOR_ACCENT).pack(side="left", padx=(0, 10))
+              activebackground=COLOR_ACCENT)
+    btn_select.pack(side="left", padx=(0, 10))
 
-    tk.Button(btn_frame, text=f"Quitar {tipo.lower()}", command=quitar_func,
+    btn_remove = tk.Button(btn_frame, text=f"Quitar {tipo.lower()}", command=quitar_func,
               bg="#ef4444", fg="white", font=FONT_BASE, bd=0, padx=10, pady=4,
-              activebackground="#fecaca").pack(side="left")
+              activebackground="#fecaca")
+    btn_remove.pack(side="left")
 
     label = tk.Label(section, text=f"Sin {tipo.lower()}", font=("Segoe UI", 9), fg="gray", bg=COLOR_BG, anchor="w")
     label.pack(anchor="w", pady=2, fill="x")
     label_var.append(label)
+
+    return btn_select  # Retorna el botón seleccionar
 
 def browse_file():
     global excel_file
@@ -295,18 +299,27 @@ def browse_image():
         "Imagen", "*.png;*.jpg;*.jpeg", image_label,
         lambda paths: globals().__setitem__('image_files', list(paths) if paths else [])
     )
+    if image_files:
+        pdf_select_button.config(state='disabled')  # Deshabilitar PDF
 
 def browse_pdf():
     seleccionar_archivo(
         "PDF", "*.pdf", pdf_label,
         lambda paths: globals().__setitem__('pdf_files', list(paths) if paths else [])
     )
+    if pdf_files:
+        image_select_button.config(state='disabled')  # Deshabilitar imagen
 
 def remove_image():
     globals()['image_files'] = []
     image_label.config(text="Sin imagen", fg="gray")
+    pdf_select_button.config(state='normal')  # Volver a habilitar PDF
 
 def remove_pdf():
+    globals()['pdf_files'] = []
+    pdf_label.config(text="Sin PDF", fg="gray")
+    image_select_button.config(state='normal')  # Volver a habilitar imagen
+
     globals()['pdf_files'] = []
     pdf_label.config(text="Sin PDF", fg="gray")
 
@@ -569,13 +582,17 @@ def launch_app():
     frame_extra.columnconfigure(1, weight=1)
 
     image_label_list = []
-    crear_seccion_archivo(frame_extra, "Imagen", "*.png;*.jpg;*.jpeg", browse_image, remove_image, image_label_list, 0, 0)
+    btn_img_select = crear_seccion_archivo(frame_extra, "Imagen", "*.png;*.jpg;*.jpeg", browse_image, remove_image, image_label_list, 0, 0)
     image_label = image_label_list[0]
 
     pdf_label_list = []
-    crear_seccion_archivo(frame_extra, "PDF", "*.pdf", browse_pdf, remove_pdf, pdf_label_list, 0, 1)
+    btn_pdf_select = crear_seccion_archivo(frame_extra, "PDF", "*.pdf", browse_pdf, remove_pdf, pdf_label_list, 0, 1)
     pdf_label = pdf_label_list[0]
-
+    
+    global image_select_button, pdf_select_button
+    image_select_button = btn_img_select
+    pdf_select_button = btn_pdf_select
+    
     status_label = tk.Label(main_frame, text="", font=("Segoe UI", 9), fg=COLOR_PRIMARY, bg=COLOR_BG)
     status_label.grid(row=10, column=0, sticky="w", pady=10)
 

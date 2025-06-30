@@ -9,7 +9,7 @@ def convertir_xls_a_xlsx(path_xls):
         
         xlsarray = sheet0.to_array()
         
-        print(f"📊 Filas leídas: {len(xlsarray)}")
+        print(f"Filas leídas: {len(xlsarray)}")
         
         sheet1 = pyexcel.Sheet(xlsarray)
         
@@ -19,7 +19,7 @@ def convertir_xls_a_xlsx(path_xls):
         
         sheet1.save_as(path_xlsx)
         
-        print(f"✅ Archivo convertido: {os.path.basename(path_xlsx)}")
+        print(f"Archivo convertido: {os.path.basename(path_xlsx)}")
         return path_xlsx
         
     except Exception as e:

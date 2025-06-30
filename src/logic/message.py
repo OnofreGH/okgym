@@ -37,7 +37,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
         try:
             # Verificar si la aplicación sigue ejecutándose
             if app_running_check and not app_running_check():
-                print("🛑 Envío interrumpido por cierre de aplicación")
+                print("Envío interrumpido por cierre de aplicación")
                 break
             
             # Verificar si está pausado - esperar hasta que se reanude
@@ -58,7 +58,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
             mensaje = message_template.format(nombre=nombre, fecha_fin=fecha_fin)
             numero = f"+{celular}"
 
-            print(f"📤 Enviando mensaje {contacto_idx + 1}/{total_validos} a {nombre} ({numero})")
+            print(f"Enviando mensaje {contacto_idx + 1}/{total_validos} a {nombre} ({numero})")
 
             # Verificar antes de cada operación importante
             if app_running_check and not app_running_check():
@@ -136,7 +136,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
 
                 # --- ENVIAR IMÁGENES PRIMERO (si las hay) ---
                 if tiene_imagenes:
-                    print(f"  📸 Enviando {len(image_paths)} imagen(es)...")
+                    print(f"Enviando {len(image_paths)} imagen(es)...")
                     
                     # Clic en ícono de clip (adjuntar)
                     pg.click(x=485, y=700)
@@ -169,11 +169,11 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                     pg.press('enter')  # Enviar imágenes
                     time.sleep(4)
 
-                    print(f"  ✅ Imágenes enviadas")
+                    print(f"Imágenes enviadas")
 
                 # --- ENVIAR PDFs DESPUÉS (si los hay) ---
                 if tiene_pdfs:
-                    print(f"  📄 Enviando {len(pdf_paths)} PDF(s)...")
+                    print(f"Enviando {len(pdf_paths)} PDF(s)...")
                     
                     # Verificar pausa antes de enviar PDFs
                     while pause_check and not pause_check():
@@ -214,11 +214,11 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                     pg.press('enter')  # Enviar PDFs
                     time.sleep(4)
 
-                    print(f"  ✅ PDFs enviados")
+                    print(f"PDFs enviados")
 
                 # Cerrar la pestaña de WhatsApp Web
                 pg.hotkey('ctrl', 'w')
-                print("  🔒 Ventana de WhatsApp cerrada.")
+                print("Ventana de WhatsApp cerrada.")
 
             else:
                 # Solo enviar texto si no hay archivos adjuntos
@@ -238,7 +238,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                 )
 
             enviados += 1
-            print(f"  ✅ Mensaje completo enviado a {nombre}")
+            print(f"Mensaje completo enviado a {nombre}")
             
             # Verificar antes del intervalo entre envíos
             if app_running_check and not app_running_check():
@@ -256,7 +256,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                 time.sleep(1)
 
         except Exception as e:
-            print(f"❌ Error con el contacto {contacto_idx + 1} ({nombre}): {type(e).__name__}: {e}")
+            print(f"Error con el contacto {contacto_idx + 1} ({nombre}): {type(e).__name__}: {e}")
             # Continuar con el siguiente contacto
 
     return enviados
