@@ -139,7 +139,8 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                     print(f"Enviando {len(image_paths)} imagen(es)...")
                     
                     # Clic en ícono de clip (adjuntar)
-                    pg.click(x=485, y=700)
+                    #pg.click(x=485, y=700)
+                    pg.click(x=671, y=1004)
                     time.sleep(1)
                     
                     # Verificar pausa
@@ -149,7 +150,8 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                         time.sleep(0.5)
 
                     # Clic en ícono de imagen
-                    pg.click(x=470, y=455)
+                    #pg.click(x=470, y=455)
+                    pg.click(x=672, y=699)
                     time.sleep(2)
 
                     # Escribir paths de imágenes separados por espacio y entre comillas
@@ -185,7 +187,8 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                     time.sleep(2)
 
                     # Clic en ícono de clip (adjuntar)
-                    pg.click(x=485, y=700)
+                    #pg.click(x=485, y=700)
+                    pg.click(x=671, y=1004)
                     time.sleep(1)
                     
                     # Verificar pausa
@@ -195,7 +198,8 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                         time.sleep(0.5)
 
                     # Clic en ícono de documento
-                    pg.click(x=470, y=424)
+                    #pg.click(x=470, y=424)
+                    pg.click(x=651, y=660)
                     time.sleep(2)
 
                     # Escribir paths de PDFs separados por espacio y entre comillas

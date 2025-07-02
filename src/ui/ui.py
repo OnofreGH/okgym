@@ -12,6 +12,7 @@ excel_file = None
 excel_logo_img = None
 image_file = None
 pdf_file = None
+app = None  # Variable para la ventana principal
 
 image_files = []
 pdf_files = []
@@ -34,7 +35,7 @@ FONT_BASE = ("Segoe UI", 10)
 
 def on_closing():
     """Maneja el cierre de la aplicación"""
-    global app_running, current_thread
+    global app_running, current_thread, app
     
     # Preguntar confirmación si hay un hilo ejecutándose
     if current_thread and current_thread.is_alive():
@@ -43,20 +44,25 @@ def on_closing():
             "Hay un proceso de envío en curso. ¿Estás seguro de que quieres cerrar?\n\nEsto detendrá el envío de mensajes."
         )
         if not result:
-            return
+            return  # No cerrar si el usuario cancela
     
     # Marcar que la aplicación se está cerrando
     app_running = False
     
-    # Intentar terminar hilos activos
+    # Intentar terminar hilos activos de manera más agresiva
     if current_thread and current_thread.is_alive():
         print("🛑 Cerrando aplicación, deteniendo proceso de envío...")
-        current_thread.join(timeout=2)
+        # No esperar al hilo, simplemente marcarlo como cerrado
     
-    # Cerrar la aplicación
-    app.quit()
-    app.destroy()
-    os._exit(0)
+    # Cerrar la aplicación directamente
+    try:
+        app.quit()  # Esto sale del mainloop
+        app.destroy()  # Esto destruye la ventana
+    except:
+        pass
+    
+    # Forzar salida del programa
+    sys.exit(0)
 
 def toggle_pause():
     """Alterna entre pausar y reanudar el envío"""
@@ -467,6 +473,15 @@ def launch_app():
             "• Ingresa un archivo Excel (.xls o .xlsx) se convierte automáticamente."
             "• Verifica que aparezca el ícono ✅"
         ]),
+        (" Paso especial para archivos de AppFit", [
+            "• Cuando descargues el archivo Excel desde AppFit y lo abras, Excel mostrará una advertencia:",
+            "• ⚠️ “El formato y la extensión de archivo de 'nombre_archivo.xls' no coinciden. Puede que el archivo esté dañado o no sea seguro. No lo abra a menos que confíe en su origen. ¿Desea abrirlo a de todos modos?”",
+            "• Haz clic en **Sí** para abrirlo.",
+            "• Luego dirígete a **Archivo > Guardar como > Examinar**",
+            "• En el campo **Tipo**, selecciona: `Libro de Excel (*.xlsx)`",
+            "• Haz clic en **Guardar** para crear el nuevo archivo.",
+            "• Finalmente, **adjunta ese nuevo archivo .xlsx** usando el botón 'Seleccionar Excel' en este programa ✅"
+        ]),
         (" 2 Escribir mensaje", [
             "• Escribe tu mensaje en el cuadro de texto",
             "• Usa variables: {nombre}, {fecha_fin}",
@@ -499,9 +514,10 @@ def launch_app():
         
         # Pasos de cada sección
         for paso in pasos:
+            fg_color = "#ef4444" if "⚠️" in paso else COLOR_FG
             paso_label = tk.Label(scrollable_frame, text=paso, 
-                                 font=("Segoe UI", 9), bg="white", fg=COLOR_FG, 
-                                 wraplength=250, justify="left")
+                font=("Segoe UI", 9, "bold" if "**" in paso else "normal"),
+                bg="white", fg=fg_color, wraplength=250, justify="left")
             paso_label.pack(anchor="w", padx=20, pady=1)
 
     # Notas importantes

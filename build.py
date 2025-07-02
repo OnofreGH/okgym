@@ -27,11 +27,11 @@ def try_direct_pyinstaller():
             ], capture_output=True, text=True, check=True, timeout=10)
             
             if result.returncode == 0:
-                print(f"   ✅ PyInstaller funciona: {result.stdout.strip()}")
+                print(f"PyInstaller funciona: {result.stdout.strip()}")
                 return python_exe
                 
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
-            print(f"   ❌ No funciona: {e}")
+            print(f"No funciona: {e}")
     
     return None
 
@@ -44,13 +44,13 @@ def build_executable():
     python_exe = try_direct_pyinstaller()
     
     if not python_exe:
-        print("\n❌ No se encontró PyInstaller funcional")
+        print("\nNo se encontró PyInstaller funcional")
         return
     
     # Verificar que estamos en el directorio correcto
     if not os.path.exists('src/main.py'):
-        print("❌ No se encontró src/main.py")
-        print("💡 Ejecuta este script desde la raíz del proyecto (okgym/)")
+        print("No se encontró src/main.py")
+        print("Ejecuta este script desde la raíz del proyecto (okgym/)")
         return
     
     # Verificar icono
@@ -58,20 +58,20 @@ def build_executable():
     for icon_file in ['src/assets/icon.ico', 'src/assets/icon.png']:
         if os.path.exists(icon_file):
             icon_path = icon_file
-            print(f"🎨 Icono encontrado: {icon_file}")
+            print(f"Icono encontrado: {icon_file}")
             break
     
     if not icon_path:
-        print("⚠️ No se encontró icono, creando ejecutable sin icono")
+        print("No se encontró icono, creando ejecutable sin icono")
     
     # Limpiar builds anteriores
     if os.path.exists('build'):
         shutil.rmtree('build')
-        print("🧹 Build anterior eliminado")
+        print("Build anterior eliminado")
     
     if os.path.exists('dist'):
         shutil.rmtree('dist')
-        print("🧹 Dist anterior eliminado")
+        print("Dist anterior eliminado")
     
     try:
         # Comando de PyInstaller
@@ -101,24 +101,24 @@ def build_executable():
         # Agregar icono si se encontró
         if icon_path:
             cmd.extend(["--icon", icon_path])
-            print(f"🎨 Agregando icono: {icon_path}")
+            print(f"Agregando icono: {icon_path}")
         
         # Agregar assets si existen
         if os.path.exists('src/assets'):
             cmd.extend(["--add-data", "src/assets;assets"])
-            print("📁 Incluyendo carpeta assets")
+            print("Incluyendo carpeta assets")
         
         cmd.append("src/main.py")
         
-        print("⚙️ Ejecutando PyInstaller...")
-        print(f"🐍 Usando Python: {python_exe}")
-        print(f"🔧 Comando: {' '.join(cmd[:6])} ... src/main.py")
+        print("Ejecutando PyInstaller...")
+        print(f"Usando Python: {python_exe}")
+        print(f"Comando: {' '.join(cmd[:6])} ... src/main.py")
         
         # Ejecutar PyInstaller y mostrar progreso
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
                                  text=True, universal_newlines=True)
         
-        print("\n📝 Salida de PyInstaller:")
+        print("\nSalida de PyInstaller:")
         # Mostrar salida en tiempo real
         for line in process.stdout:
             # Filtrar líneas importantes para mostrar progreso
@@ -135,12 +135,12 @@ def build_executable():
             exe_path = Path("dist/WhatsAppSender.exe")
             if exe_path.exists():
                 size_mb = exe_path.stat().st_size / (1024 * 1024)
-                print(f"\n✅ Ejecutable creado exitosamente!")
-                print(f"📁 Ubicación: {exe_path.absolute()}")
-                print(f"📦 Tamaño: {size_mb:.1f} MB")
+                print(f"\nEjecutable creado exitosamente!")
+                print(f"Ubicación: {exe_path.absolute()}")
+                print(f"Tamaño: {size_mb:.1f} MB")
                 
                 if icon_path:
-                    print(f"🎨 Icono aplicado: {icon_path}")
+                    print(f"Icono aplicado: {icon_path}")
                 
                 # Crear carpeta de distribución
                 dist_folder = Path("WhatsAppSender_Portable")
@@ -153,21 +153,21 @@ def build_executable():
                 # Crear README para el usuario
                 create_readme(dist_folder)
                 
-                print(f"📦 Versión portable creada en: {dist_folder.absolute()}")
+                print(f"Versión portable creada en: {dist_folder.absolute()}")
                 
                 # Abrir carpeta del ejecutable (Windows)
                 if os.name == 'nt':
                     try:
                         os.startfile(str(dist_folder))
                     except Exception:
-                        print(f"💡 Abre manualmente: {dist_folder.absolute()}")
+                        print(f"Abre manualmente: {dist_folder.absolute()}")
             else:
-                print("❌ El ejecutable no se creó correctamente")
+                print("El ejecutable no se creó correctamente")
         else:
-            print(f"❌ PyInstaller falló con código: {process.returncode}")
+            print(f"PyInstaller falló con código: {process.returncode}")
             
     except Exception as e:
-        print(f"❌ Error inesperado: {e}")
+        print(f"Error inesperado: {e}")
 
 def create_readme(dist_folder):
     """Crea un archivo README para el usuario final"""
