@@ -1,0 +1,35 @@
+# WhatsApp Sender - Versión Portable
+
+## Instrucciones de uso:
+
+1. **Ejecutar el programa:**
+   - Doble clic en WhatsAppSender.exe
+   - No requiere instalación
+
+2. **Preparar archivo Excel:**
+   - Columnas requeridas: NOMBRES, CELULAR, FECHA FIN
+   - Formatos soportados: .xls, .xlsx
+   - Números de 9 dígitos (formato peruano)
+
+3. **Usar el programa:**
+   - Seleccionar archivo Excel
+   - Escribir mensaje (usa {nombre}, {fecha_fin})
+   - Adjuntar imágenes/PDFs (opcional)
+   - Previsualizar mensaje
+   - Enviar mensajes
+
+## Requisitos:
+- Windows 10/11
+- Conexión a internet (para WhatsApp Web)
+- Navegador moderno (Chrome, Edge, Firefox)
+
+## Notas importantes:
+- Mantén WhatsApp Web abierto durante el envío
+- No muevas el mouse mientras se envían mensajes
+- Los números inválidos se omiten automáticamente
+
+## Soporte:
+Si tienes problemas, verifica que:
+- WhatsApp Web esté funcionando en tu navegador
+- Los números estén en formato correcto
+- Tengas permisos para escribir archivos temporales

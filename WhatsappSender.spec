@@ -1,50 +1,24 @@
 # -*- mode: python ; coding: utf-8 -*-
-# pyright: ignore
+
 
 block_cipher = None
 
+
 a = Analysis(
-    ['src/main.py'],
+    ['src\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('src/assets', 'assets'),
-    ],
-    hiddenimports=[
-        'pywhatkit',
-        'pyautogui', 
-        'pandas',
-        'pyexcel',
-        'pyexcel.plugins.xls',
-        'pyexcel.plugins.xlsx',
-        'tkinter',
-        'PIL',
-        'PIL.Image',
-        'PIL.ImageTk',
-        'openpyxl',
-        'xlrd',
-        'pygetwindow',
-        'webbrowser',
-        'urllib.parse',
-        'threading'
-    ],
+    datas=[('src/assets', 'assets')],
+    hiddenimports=['pywhatkit', 'pyautogui', 'pandas', 'pyexcel', 'pyexcel.plugins.xls', 'pyexcel.plugins.xlsx', 'PIL.Image', 'PIL.ImageTk', 'openpyxl', 'xlrd', 'tkinter', 'threading', 'webbrowser'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        'matplotlib',
-        'numpy.random._pickle',
-        'IPython',
-        'jupyter',
-        'pytest',
-        'test'
-    ],
+    excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
-
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -67,5 +41,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='src/assets/icon.ico',  # Agregar esta línea
+    icon=['src\\assets\\icon.ico'],
 )

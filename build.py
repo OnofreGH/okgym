@@ -15,7 +15,7 @@ def try_direct_pyinstaller():
         "C:\\Python313\\python.exe",  # Python del sistema
     ]
     
-    print("🔧 Probando PyInstaller directamente...")
+    print("Probando PyInstaller directamente...")
     
     for python_exe in python_candidates:
         try:
@@ -38,7 +38,7 @@ def try_direct_pyinstaller():
 def build_executable():
     """Crea el ejecutable portable de WhatsApp Sender"""
     
-    print("🔨 Construyendo WhatsApp Sender...")
+    print("Construyendo WhatsApp Sender...")
     
     # Buscar PyInstaller usando ejecución directa
     python_exe = try_direct_pyinstaller()
