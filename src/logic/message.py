@@ -1,6 +1,7 @@
 import pandas as pd
 import time
 import os
+import sys
 from logic.utils import normalizar_numero
 from logic.whatsapp_selenium import WhatsAppSender
 
@@ -13,6 +14,14 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
     progress_callback: función para actualizar progreso (current, total, contact_name)
     start_index: índice desde donde empezar el envío
     """
+    # Configurar la codificación de la consola para Windows
+    if sys.platform.startswith('win'):
+        try:
+            # Intentar configurar UTF-8 para la consola
+            os.system('chcp 65001 > nul')
+        except:
+            pass
+    
     df = pd.read_excel(excel_file, header=1)
     enviados = 0
     contactos_validos = []
@@ -40,7 +49,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
             return 0
         
         # Esperar hasta que el usuario escanee el código QR si es necesario
-        print("Esperando autenticación en WhatsApp Web...")
+        print("Esperando autenticacion en WhatsApp Web...")
         if not whatsapp_sender.open_whatsapp():
             print("Error: No se pudo autenticar en WhatsApp Web")
             whatsapp_sender.close()
@@ -53,7 +62,7 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
             try:
                 # Verificar si la aplicación sigue ejecutándose
                 if app_running_check and not app_running_check():
-                    print("Envío interrumpido por cierre de aplicación")
+                    print("Envio interrumpido por cierre de aplicacion")
                     break
                 
                 # Verificar si está pausado - esperar hasta que se reanude
@@ -93,11 +102,19 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                 time.sleep(2)
                 
             except Exception as e:
-                print(f"Error al enviar mensaje a {contacto.get('nombre', 'contacto desconocido')}: {str(e)}")
+                # Usar representación segura del error para evitar problemas de codificación
+                error_msg = str(e).encode('ascii', 'ignore').decode('ascii')
+                print(f"Error al enviar mensaje a {contacto.get('nombre', 'contacto desconocido')}: {error_msg}")
                 continue
         
     except Exception as e:
-        print(f"Error general en envío de mensajes: {str(e)}")
+        # Manejar errores de codificación de manera segura
+        try:
+            print(f"Error general en envio de mensajes: {str(e)}")
+        except UnicodeEncodeError:
+            # Si hay problemas con caracteres especiales, usar representación ASCII
+            error_msg = str(e).encode('ascii', 'ignore').decode('ascii')
+            print(f"Error general en envio de mensajes: {error_msg}")
     finally:
         # Cerrar el driver de Selenium
         whatsapp_sender.close()

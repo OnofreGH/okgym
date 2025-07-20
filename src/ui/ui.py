@@ -445,7 +445,7 @@ def launch_app():
     instructions_frame.columnconfigure(0, weight=1)
 
     # Título del panel de instrucciones
-    tk.Label(instructions_frame, text="📋 Cómo usar el programa", 
+    tk.Label(instructions_frame, text="Cómo usar el programa", 
              font=("Segoe UI", 12, "bold"), bg="white", fg=COLOR_FG).pack(pady=10, padx=10, anchor="w")
 
     # Crear un frame con scroll para las instrucciones
@@ -505,7 +505,7 @@ def launch_app():
             paso_label.pack(anchor="w", padx=20, pady=1)
 
     # Notas importantes
-    tk.Label(scrollable_frame, text="⚠️ Notas importantes", 
+    tk.Label(scrollable_frame, text="Notas importantes", 
              font=("Segoe UI", 10, "bold"), bg="white", fg="#ef4444").pack(anchor="w", padx=10, pady=(15, 5))
 
     notas = [
@@ -606,7 +606,7 @@ def launch_app():
     # No hacer grid aquí, se mostrará cuando sea necesario
 
     # Botón de pausa/reanudar (inicialmente oculto)
-    pause_button = tk.Button(main_frame, text="⏸️ Pausar", command=toggle_pause,
+    pause_button = tk.Button(main_frame, text="Pausar", command=toggle_pause,
                             bg="#ef4444", fg="white", font=FONT_BASE, bd=0, padx=10, pady=5,
                             activebackground="#fecaca")
     # No hacer grid aquí, se mostrará cuando sea necesario

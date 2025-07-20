@@ -23,9 +23,8 @@ class WhatsAppSender:
         system = platform.system()
         
         if system == "Windows":
-            # Ruta típica en Windows
             user_data_dir = os.path.expanduser(r"~\AppData\Local\Google\Chrome\User Data")
-            profile_dir = "Default"  # Perfil predeterminado
+            profile_dir = "Default"
         elif system == "Darwin":  # macOS
             user_data_dir = os.path.expanduser("~/Library/Application Support/Google/Chrome")
             profile_dir = "Default"
@@ -35,47 +34,85 @@ class WhatsAppSender:
         
         return user_data_dir, profile_dir
 
-    def setup_driver(self):
-        """Configura el driver de Chrome para usar el perfil existente"""
+    def copy_essential_session_files(self, source_profile, dest_profile):
+        """Copia solo los archivos esenciales de la sesión, no todo el perfil"""
+        essential_files = [
+            "Cookies",
+            "Local Storage",
+            "Session Storage", 
+            "Web Data",
+            "Login Data",
+            "Preferences"
+        ]
+        
         try:
-            print("🔧 Configurando driver de Chrome con perfil existente...")
+            os.makedirs(dest_profile, exist_ok=True)
+            
+            for file_name in essential_files:
+                source_path = os.path.join(source_profile, file_name)
+                dest_path = os.path.join(dest_profile, file_name)
+                
+                if os.path.exists(source_path):
+                    if os.path.isdir(source_path):
+                        if os.path.exists(dest_path):
+                            shutil.rmtree(dest_path)
+                        shutil.copytree(source_path, dest_path)
+                    else:
+                        shutil.copy2(source_path, dest_path)
+                    print(f"Copiado: {file_name}")
+                else:
+                    print(f"No encontrado: {file_name}")
+            
+            return True
+        except Exception as e:
+            print(f"Error copiando archivos de sesion: {e}")
+            return False
+
+    def setup_driver(self):
+        """Configura el driver de Chrome con una estrategia optimizada"""
+        try:
+            print("Configurando driver de Chrome...")
             chrome_options = webdriver.ChromeOptions()
             
-            # Obtener la ruta del perfil de Chrome del usuario
+            # ESTRATEGIA 1: Intentar usar perfil temporal con sesión copiada
             user_data_dir, profile_dir = self.get_chrome_profile_path()
-            
-            # Verificar si el perfil existe
             profile_path = os.path.join(user_data_dir, profile_dir)
-            if not os.path.exists(profile_path):
-                print(f"⚠️ No se encontró el perfil de Chrome en: {profile_path}")
-                print("🔄 Usando perfil temporal para WhatsApp...")
-                # Fallback: usar perfil temporal
-                user_data_dir = os.path.join(os.getcwd(), "whatsapp_profile")
-                profile_dir = "Default"
-            else:
-                print(f"✅ Perfil de Chrome encontrado: {profile_path}")
-                # Para usar el perfil existente, usamos una copia temporal
-                # para evitar conflictos con Chrome abierto
+            
+            use_copied_session = False
+            
+            if os.path.exists(profile_path):
+                print(f"Perfil de Chrome encontrado: {profile_path}")
+                
+                # Crear perfil temporal solo con archivos esenciales
                 temp_profile = os.path.join(os.getcwd(), "chrome_temp_profile")
                 if os.path.exists(temp_profile):
                     shutil.rmtree(temp_profile)
                 
-                print("📋 Copiando sesión de Chrome existente...")
-                shutil.copytree(profile_path, os.path.join(temp_profile, "Default"))
-                user_data_dir = temp_profile
-                profile_dir = "Default"
+                print("Copiando archivos esenciales de sesion (rapido)...")
+                temp_profile_default = os.path.join(temp_profile, "Default")
+                
+                if self.copy_essential_session_files(profile_path, temp_profile_default):
+                    chrome_options.add_argument(f"--user-data-dir={temp_profile}")
+                    chrome_options.add_argument(f"--profile-directory=Default")
+                    use_copied_session = True
+                    print("Usando sesion copiada optimizada")
+                else:
+                    print("Fallo la copia, usando perfil temporal limpio")
             
-            # Configurar Chrome para usar el perfil
-            chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
-            chrome_options.add_argument(f"--profile-directory={profile_dir}")
+            if not use_copied_session:
+                # ESTRATEGIA 2: Perfil temporal completamente limpio
+                print("Usando perfil temporal limpio...")
+                temp_dir = tempfile.mkdtemp(prefix="whatsapp_")
+                chrome_options.add_argument(f"--user-data-dir={temp_dir}")
             
-            # Opciones de estabilidad (SIN remote debugging que causa conflictos)
+            # Opciones de estabilidad y velocidad
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-blink-features=AutomationControlled")
             chrome_options.add_argument("--disable-extensions")
             chrome_options.add_argument("--disable-plugins")
             chrome_options.add_argument("--disable-images")  # Cargar más rápido
+            chrome_options.add_argument("--disable-javascript")  # Solo para cargar inicial
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
             
@@ -88,151 +125,396 @@ class WhatsAppSender:
                 "profile.default_content_settings.popups": 0
             })
             
-            # Instalar ChromeDriver
-            print("📥 Descargando/Verificando ChromeDriver...")
+            # Instalar ChromeDriver con timeout más corto
+            print("Configurando ChromeDriver...")
             service = Service(ChromeDriverManager().install())
             
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            self.driver.set_page_load_timeout(40)
+            self.driver.set_page_load_timeout(30)  # Reducido de 40 a 30
             
             # Ocultar que es un driver automatizado
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             
-            # Maximizar ventana para mejor compatibilidad
+            # Maximizar ventana
             self.driver.maximize_window()
             
-            self.wait = WebDriverWait(self.driver, 20)
-            print("✅ Driver de Chrome configurado correctamente")
+            self.wait = WebDriverWait(self.driver, 15)  # Reducido de 20 a 15
+            print("Driver de Chrome configurado correctamente")
             return True
             
         except Exception as e:
-            print(f"❌ Error configurando driver: {e}")
+            print(f"Error configurando driver: {e}")
             return self.setup_fallback_driver()
 
     def setup_fallback_driver(self):
-        """Configuración de fallback con perfil temporal limpio"""
+        """Configuración de fallback completamente básica"""
         try:
-            print("🔄 Intentando con perfil temporal limpio...")
+            print("Usando configuracion basica de emergencia...")
             chrome_options = webdriver.ChromeOptions()
             
-            # Usar perfil temporal completamente nuevo
-            temp_dir = tempfile.mkdtemp(prefix="whatsapp_")
-            chrome_options.add_argument(f"--user-data-dir={temp_dir}")
-            
-            # Opciones básicas y estables
+            # Solo opciones básicas
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--start-maximized")
-            chrome_options.add_argument("--disable-extensions")
-            chrome_options.add_argument("--disable-plugins")
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
             
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            self.driver.set_page_load_timeout(40)
-            self.wait = WebDriverWait(self.driver, 20)
+            self.driver.set_page_load_timeout(30)
+            self.wait = WebDriverWait(self.driver, 15)
             
-            print("✅ Driver configurado con perfil temporal limpio")
+            print("Driver configurado con opciones basicas")
             return True
             
         except Exception as e:
-            print(f"❌ Error crítico configurando driver: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Error critico configurando driver: {e}")
+            return False
+
+    def dismiss_welcome_popups(self):
+        """Cierra ventanas emergentes de bienvenida que aparecen después del primer login - VERSIÓN OPTIMIZADA"""
+        try:
+            print("Verificando ventanas de bienvenida...")
+            
+            # Verificación rápida inicial - si no hay diálogos, salir inmediatamente
+            try:
+                dialogs = self.driver.find_elements(By.XPATH, "//div[@role='dialog']")
+                if not any(d.is_displayed() for d in dialogs):
+                    print("No hay ventanas emergentes visibles")
+                    return True
+            except:
+                print("No hay ventanas emergentes")
+                return True
+            
+            print("Ventana emergente detectada, cerrando...")
+            
+            # Selectores ordenados por prioridad y frecuencia
+            quick_selectors = [
+                "//button[contains(text(), 'Continuar')]",
+                "//button[contains(text(), 'Continue')]", 
+                "//span[@data-icon='x']/..",
+                "//div[@role='dialog']//button[1]"  # Primer botón del diálogo
+            ]
+            
+            # Solo 1 intento rápido
+            for selector in quick_selectors:
+                try:
+                    popup_button = WebDriverWait(self.driver, 0.5).until(  # Timeout muy corto
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    
+                    if popup_button.is_displayed():
+                        popup_button.click()
+                        print("Ventana emergente cerrada")
+                        time.sleep(0.5)  # Pausa mínima
+                        return True
+                        
+                except TimeoutException:
+                    continue
+                except Exception:
+                    continue
+            
+            # Si no funcionó, intentar ESC como último recurso
+            try:
+                from selenium.webdriver.common.action_chains import ActionChains
+                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                print("ESC enviado para cerrar ventanas")
+                time.sleep(0.5)
+                return True
+            except:
+                pass
+                
+            print("Verificación completada")
+            return True
+            
+        except Exception as e:
+            print(f"Error en dismiss_welcome_popups: {e}")
             return False
 
     def open_whatsapp(self):
         """Abre WhatsApp Web y detecta si ya hay sesión activa"""
         whatsapp_url = "https://web.whatsapp.com"
         try:
-            print(f"🌐 Navegando a: {whatsapp_url}")
+            print(f"Navegando a: {whatsapp_url}")
             self.driver.get(whatsapp_url)
             
             # Verificar si la navegación fue exitosa
-            time.sleep(3)
+            time.sleep(5)  # Aumentado para dar más tiempo inicial
             if "whatsapp.com" not in self.driver.current_url.lower():
-                print(f"❌ Error: No se pudo navegar a WhatsApp. URL actual: {self.driver.current_url}")
+                print(f"Error: No se pudo navegar a WhatsApp. URL actual: {self.driver.current_url}")
                 return False
             
-            print("✅ Navegación a WhatsApp exitosa. Detectando estado de sesión...")
+            print("Navegación a WhatsApp exitosa. Detectando estado de sesión...")
             
-            # Selectores para detectar si ya está logueado
+            # Selectores más amplios para detectar diferentes estados
             logged_in_selectors = [
                 "//div[@id='pane-side']",  # Panel lateral de chats
                 "//div[contains(@class, 'two') and contains(@class, '_aigs')]",  # Panel principal
                 "//header[contains(@class, '_amid')]",  # Header de WhatsApp
                 "//div[@title='New chat']",  # Botón de nuevo chat
-                "//div[@data-testid='chat-list']"  # Lista de chats
+                "//div[@data-testid='chat-list']",  # Lista de chats
+                "//span[@data-icon='new-chat-outline']/..",  # Botón nuevo chat (alternativo)
+                "//div[contains(@aria-label, 'Chat list')]",  # Lista de chats (alternativo)
+                "//div[@role='button'][contains(@title, 'New chat')]"  # Nuevo chat (más general)
             ]
             
-            # Primero, verificar rápidamente si ya está logueado (5 segundos)
-            print("🔍 Verificando sesión existente...")
-            for selector in logged_in_selectors:
-                try:
-                    element = WebDriverWait(self.driver, 2).until(
-                        EC.presence_of_element_located((By.XPATH, selector))
-                    )
-                    if element.is_displayed():
-                        print("✅ ¡Sesión activa detectada! WhatsApp Web ya está logueado.")
-                        self.is_logged_in = True
-                        time.sleep(2)  # Esperar a que termine de cargar
-                        return True
-                except TimeoutException:
-                    continue
+            # Detectar estados intermedios (cuando está cargando después del QR)
+            intermediate_selectors = [
+                "//div[@contenteditable='true'][@data-tab='3']",  # Campo de búsqueda
+                "//div[contains(@aria-label, 'Search input')]",  # Campo de búsqueda alternativo
+                "//div[@title='Search input textbox']"  # Campo de búsqueda (más específico)
+            ]
             
-            # Si no se detectó sesión activa, buscar el código QR
-            print("📷 No se detectó sesión activa. Buscando código QR...")
+            # PASO 1: Verificar si ya está completamente logueado
+            print("Verificando sesión existente...")
+            for attempt in range(3):
+                print(f"Intento {attempt + 1} de verificar sesión completa...")
+                
+                for selector in logged_in_selectors:
+                    try:
+                        element = WebDriverWait(self.driver, 6).until(
+                            EC.presence_of_element_located((By.XPATH, selector))
+                        )
+                        if element.is_displayed():
+                            print("Sesión activa detectada. WhatsApp Web ya está logueado.")
+                            self.is_logged_in = True
+                            self.dismiss_welcome_popups()
+                            return True
+                    except TimeoutException:
+                        continue
+                
+                # Si no está completamente logueado, verificar estado intermedio
+                intermediate_found = False
+                for selector in intermediate_selectors:
+                    try:
+                        element = WebDriverWait(self.driver, 5).until(
+                            EC.presence_of_element_located((By.XPATH, selector))
+                        )
+                        if element.is_displayed():
+                            print(f"Estado intermedio detectado (intento {attempt + 1}). WhatsApp está cargando...")
+                            intermediate_found = True
+                            break
+                    except TimeoutException:
+                        continue
+                
+                if intermediate_found:
+                    # Está en estado intermedio, cerrar popups y esperar más
+                    print("Cerrando posibles ventanas emergentes...")
+                    self.dismiss_welcome_popups()
+                    
+                    # Esperar más tiempo para que WhatsApp termine de cargar
+                    print("Esperando a que WhatsApp termine de cargar completamente...")
+                    time.sleep(15)  # Espera extendida
+                    
+                    # Continuar con el siguiente intento
+                    continue
+                else:
+                    # No hay estado intermedio, salir del bucle para buscar QR
+                    break
+            
+            # PASO 2: Si después de los intentos no está logueado, buscar QR
+            print("No se detectó sesión activa. Verificando si se requiere login...")
             qr_selectors = [
                 "//canvas[@aria-label='Scan me!']",
                 "//canvas[contains(@aria-label, 'Scan')]",
                 "//div[@data-testid='qr-code']",
-                "//canvas"
+                "//canvas",
+                "//div[contains(@class, 'qr')]"
             ]
             
             qr_found = False
             for selector in qr_selectors:
                 try:
-                    qr_element = WebDriverWait(self.driver, 5).until(
+                    qr_element = WebDriverWait(self.driver, 8).until(
                         EC.presence_of_element_located((By.XPATH, selector))
                     )
                     if qr_element.is_displayed():
-                        print("📱 Código QR detectado. Por favor, escanea con tu teléfono.")
-                        print("⏳ Tienes hasta 2 minutos para escanear...")
+                        print("Código QR detectado - Se requiere autenticación inicial.")
+                        print("Escanea el código QR con tu teléfono para autenticarte.")
+                        print("Tienes hasta 2 minutos para completar el proceso...")
                         qr_found = True
                         break
                 except TimeoutException:
                     continue
             
             if qr_found:
-                # Esperar a que aparezca la interfaz principal después de escanear
-                print("⏳ Esperando login después de escanear QR...")
-                for selector in logged_in_selectors:
-                    try:
-                        WebDriverWait(self.driver, 120).until(
-                            EC.presence_of_element_located((By.XPATH, selector))
-                        )
-                        print("✅ Login exitoso después de escanear QR.")
+                # PASO 3: Esperar autenticación después del QR con manejo de ventanas emergentes
+                print("Esperando autenticación...")
+                
+                # Primero esperar a que desaparezca el QR
+                try:
+                    print("Esperando a que desaparezca el QR...")
+                    WebDriverWait(self.driver, 120).until_not(
+                        EC.presence_of_element_located((By.XPATH, "//canvas[@aria-label='Scan me!']"))
+                    )
+                    print("QR escaneado, procesando autenticación...")
+                except TimeoutException:
+                    print("Timeout esperando escaneo de QR")
+                    return False
+                
+                # Esperar y manejar ventanas emergentes inmediatamente después del QR
+                for post_qr_attempt in range(5):  # Hasta 5 intentos post-QR
+                    print(f"Post-QR intento {post_qr_attempt + 1}: Cerrando ventanas emergentes...")
+                    self.dismiss_welcome_popups()
+                    time.sleep(3)
+                    
+                    # Verificar si ya apareció la interfaz principal
+                    session_ready = False
+                    for selector in logged_in_selectors:
+                        try:
+                            element = WebDriverWait(self.driver, 10).until(
+                                EC.presence_of_element_located((By.XPATH, selector))
+                            )
+                            if element.is_displayed():
+                                print("Interfaz principal detectada después del QR")
+                                session_ready = True
+                                break
+                        except TimeoutException:
+                            continue
+                    
+                    if session_ready:
+                        print("Autenticación completada exitosamente.")
                         self.is_logged_in = True
+                        
+                        # Una última verificación de popups
+                        print("Limpieza final de ventanas emergentes...")
+                        self.dismiss_welcome_popups()
                         time.sleep(2)
                         return True
+                    
+                    # Si no está listo, verificar si sigue en estado intermedio
+                    intermediate_still_there = False
+                    for selector in intermediate_selectors:
+                        try:
+                            element = WebDriverWait(self.driver, 5).until(
+                                EC.presence_of_element_located((By.XPATH, selector))
+                            )
+                            if element.is_displayed():
+                                print(f"Aún en estado intermedio (post-QR intento {post_qr_attempt + 1})")
+                                intermediate_still_there = True
+                                break
+                        except TimeoutException:
+                            continue
+                    
+                    if not intermediate_still_there:
+                        print("WhatsApp no está en estado esperado, haciendo debug...")
+                        self.debug_page_state()
+                        break
+                    
+                    # Esperar antes del siguiente intento
+                    print("Esperando más tiempo para estabilización...")
+                    time.sleep(10)
+                
+                print("Timeout: No se completó la autenticación correctamente.")
+                return False
+            else:
+                # PASO 4: No hay QR, verificar si hay estados especiales o errores
+                print("Estado inesperado: No se detectó QR ni sesión activa.")
+                
+                # Verificar errores específicos
+                error_selectors = [
+                    "//*[contains(text(), 'Unable to connect')]",
+                    "//*[contains(text(), 'Computer not connected')]", 
+                    "//*[contains(text(), 'Phone not connected')]",
+                    "//*[contains(text(), 'Loading')]",
+                    "//*[contains(text(), 'Cargando')]"
+                ]
+                
+                for error_selector in error_selectors:
+                    try:
+                        error_element = WebDriverWait(self.driver, 3).until(
+                            EC.presence_of_element_located((By.XPATH, error_selector))
+                        )
+                        if error_element.is_displayed():
+                            print(f"Error detectado: {error_element.text}")
+                            return False
                     except TimeoutException:
                         continue
                 
-                print("❌ Timeout: No se completó el login después de escanear QR.")
-                return False
-            else:
-                print("❌ No se detectó código QR ni sesión activa.")
+                # Si está en estado intermedio sin QR, intentar esperar más
+                intermediate_found = False
+                for selector in intermediate_selectors:
+                    try:
+                        element = self.driver.find_element(By.XPATH, selector)
+                        if element.is_displayed():
+                            print("Estado intermedio sin QR detectado. Esperando estabilización...")
+                            intermediate_found = True
+                            break
+                    except:
+                        continue
+                
+                if intermediate_found:
+                    # Intentar cerrar popups y esperar
+                    self.dismiss_welcome_popups()
+                    time.sleep(15)
+                    
+                    # Verificar una vez más
+                    for selector in logged_in_selectors:
+                        try:
+                            element = WebDriverWait(self.driver, 10).until(
+                                EC.presence_of_element_located((By.XPATH, selector))
+                            )
+                            if element.is_displayed():
+                                print("Sesión estabilizada después de espera adicional")
+                                self.is_logged_in = True
+                                return True
+                        except TimeoutException:
+                            continue
+                
                 self.debug_page_state()
                 return False
 
         except WebDriverException as e:
-            print(f"❌ Error de WebDriver: {e}")
+            print(f"Error de WebDriver: {e}")
             return False
         except Exception as e:
-            print(f"❌ Error inesperado: {e}")
+            print(f"Error inesperado: {e}")
             return False
 
+    def dismiss_dialogs(self):
+        """Cierra cualquier diálogo o popup que pueda estar bloqueando la interfaz"""
+        try:
+            # Lista de selectores para cerrar diálogos comunes
+            close_selectors = [
+                "//button[@aria-label='Cerrar']",
+                "//button[@aria-label='Close']",
+                "//span[@data-icon='x']/..",
+                "//div[@role='button'][contains(@aria-label, 'Close')]",
+                "//button[contains(@class, 'close')]",
+                "//div[@data-testid='modal-header-close-btn']",
+                "//button[contains(text(), 'Not now')]",
+                "//button[contains(text(), 'Ahora no')]",
+                "//button[contains(text(), 'Maybe later')]",
+                "//button[contains(text(), 'Skip')]"
+            ]
+            
+            for selector in close_selectors:
+                try:
+                    close_button = WebDriverWait(self.driver, 2).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    close_button.click()
+                    print("Diálogo cerrado")
+                    time.sleep(1)
+                    return True
+                except TimeoutException:
+                    continue
+            
+                
+            return False
+            
+        except Exception as e:
+            print(f"Error cerrando diálogos: {e}")
+            return False
+
+    def wait_for_page_load(self):
+        """Espera a que la página esté completamente cargada"""
+        try:
+            # Esperar a que desaparezcan los spinners de carga
+            WebDriverWait(self.driver, 5).until_not(
+                EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'spinner')]"))
+            )
+        except TimeoutException:
+            pass  # Es normal que no haya spinners
+        
     def open_chat_with_link(self, phone_number):
         """Abre un chat directamente usando un enlace"""
         try:
@@ -240,21 +522,28 @@ class WhatsAppSender:
             phone_number_for_link = phone_number.replace('+', '')
             url = f"https://web.whatsapp.com/send?phone={phone_number_for_link}"
             
-            print(f"🔗 Abriendo chat con: {url}")
+            print(f"Abriendo chat con: {url}")
             self.driver.get(url)
+            
+            # Esperar a que la página cargue completamente
+            self.wait_for_page_load()
+            
+            # Cerrar cualquier diálogo que pueda aparecer
+            self.dismiss_dialogs()
             
             # Esperar a que el campo de mensaje esté listo
             message_selectors = [
                 "//div[@contenteditable='true'][@data-tab='10']",
                 "//div[contains(@aria-label, 'Type a message')]",
                 "//div[@title='Type a message']",
-                "//div[@role='textbox'][@contenteditable='true']"
+                "//div[@role='textbox'][@contenteditable='true']",
+                "//div[contains(@class, 'copyable-text') and @contenteditable='true']"
             ]
             
             message_box = None
             for selector in message_selectors:
                 try:
-                    message_box = WebDriverWait(self.driver, 10).until(
+                    message_box = WebDriverWait(self.driver, 5).until(
                         EC.element_to_be_clickable((By.XPATH, selector))
                     )
                     break
@@ -275,63 +564,110 @@ class WhatsAppSender:
                             EC.presence_of_element_located((By.XPATH, invalid_selector))
                         )
                         if invalid_element:
-                            print(f"❌ El número {phone_number} es inválido según WhatsApp.")
+                            print(f"El número {phone_number} es inválido según WhatsApp.")
                             return False
                 except TimeoutException:
                     pass
                 
-                print(f"❌ No se pudo abrir el chat para {phone_number}. El campo de mensaje no apareció.")
+                print(f"No se pudo abrir el chat para {phone_number}. El campo de mensaje no apareció.")
+                # Hacer debug para ver qué está pasando
+                self.debug_page_state()
                 return False
             
-            print(f"✅ Chat abierto para {phone_number}")
-            time.sleep(2)
+            print(f"Chat abierto para {phone_number}")
             return True
 
         except Exception as e:
-            print(f"❌ Error abriendo chat para {phone_number}: {e}")
+            print(f"Error abriendo chat para {phone_number}: {e}")
             return False
 
     def send_text_message(self, message):
-        """Envía un mensaje de texto"""
+        """Envía un mensaje de texto con manejo mejorado de errores"""
         try:
+            # Primero, cerrar cualquier diálogo que pueda estar abierto
+            self.dismiss_dialogs()
+            
             # Múltiples selectores para el campo de mensaje
             message_selectors = [
                 "//div[@contenteditable='true'][@data-tab='10']",
                 "//div[contains(@aria-label, 'Type a message')]",
                 "//div[@role='textbox'][@contenteditable='true'][@data-lexical-editor='true']",
                 "//div[contains(@class, 'copyable-text') and @contenteditable='true' and contains(@aria-label, 'message')]",
-                "//div[@title='Type a message']"
+                "//div[@title='Type a message']",
+                "//div[@data-testid='conversation-compose-box-input']"
             ]
             
             message_box = None
-            for selector in message_selectors:
-                try:
-                    message_box = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
+            for attempt in range(3):  # Intentar hasta 3 veces
+                print(f"Intento {attempt + 1} de encontrar campo de mensaje...")
+                
+                for selector in message_selectors:
+                    try:
+                        message_box = WebDriverWait(self.driver, 5).until(
+                            EC.element_to_be_clickable((By.XPATH, selector))
+                        )
+                        print(f"Campo de mensaje encontrado con selector: {selector}")
+                        break
+                    except TimeoutException:
+                        continue
+                
+                if message_box:
                     break
-                except TimeoutException:
-                    continue
+                
+                # Si no se encontró, intentar cerrar diálogos y refrescar
+                print("Campo de mensaje no encontrado, intentando cerrar diálogos...")
+                self.dismiss_dialogs()
+                time.sleep(2)
             
             if not message_box:
-                print("❌ No se encontró el campo de mensaje")
+                print("No se encontró el campo de mensaje después de varios intentos")
                 return False
             
-            # Escribir mensaje
-            message_box.click()
-            time.sleep(1)
-            message_box.clear()
-            time.sleep(1)
-            message_box.send_keys(message)
-            time.sleep(2)
+            # Hacer scroll al elemento si es necesario
+            try:
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", message_box)
+                time.sleep(1)
+            except:
+                pass
             
-            # Enviar mensaje
-            message_box.send_keys(Keys.ENTER)
-            time.sleep(3)
-            
-            print("✅ Mensaje de texto enviado")
-            return True
-            
+            # Intentar hacer clic de manera más robusta
+            try:
+                # Usar JavaScript para hacer clic si el clic normal falla
+                self.driver.execute_script("arguments[0].click();", message_box)
+                time.sleep(1)
+            except:
+                try:
+                    message_box.click()
+                    time.sleep(1)
+                except:
+                    print("No se pudo hacer clic en el campo de mensaje")
+                    return False
+
+            # Limpiar el campo y escribir mensaje
+            try:
+                # Borrar cualquier texto anterior
+                message_box.send_keys(Keys.CONTROL + "a")
+                time.sleep(0.5)
+                message_box.send_keys(Keys.DELETE)
+                time.sleep(0.5)
+
+                # Escribir el mensaje
+                message_box.send_keys(message)
+                time.sleep(2)
+
+                # Enviar mensaje
+                message_box.send_keys(Keys.ENTER)
+                time.sleep(3)
+
+                print("Mensaje de texto enviado correctamente")
+                return True
+                
+            except Exception as e:
+                print(f"Error al escribir/enviar mensaje: {e}")
+                return False
+
         except Exception as e:
-            print(f"❌ Error enviando mensaje de texto: {e}")
+            print(f"Error enviando mensaje de texto: {e}")
             return False
 
     def send_files(self, file_paths, file_type="image"):
@@ -340,7 +676,7 @@ class WhatsAppSender:
             if not file_paths:
                 return True
                 
-            print(f"📎 Enviando {len(file_paths)} archivo(s) de tipo {file_type}")
+            print(f"Enviando {len(file_paths)} archivo(s) de tipo {file_type}")
             
             # Múltiples selectores para el botón de adjuntar
             attach_selectors = [
@@ -359,7 +695,7 @@ class WhatsAppSender:
                     continue
             
             if not attach_button:
-                print("❌ No se encontró el botón de adjuntar")
+                print("No se encontró el botón de adjuntar")
                 return False
             
             attach_button.click()
@@ -403,7 +739,7 @@ class WhatsAppSender:
                     continue
             
             if not file_input:
-                print("❌ No se encontró el input de archivo")
+                print("No se encontró el input de archivo")
                 return False
             
             # Preparar paths absolutos
@@ -432,18 +768,18 @@ class WhatsAppSender:
                     continue
             
             if not send_button:
-                print("⚠️ No se encontró el botón de enviar, intentando Enter")
+                print("No se encontró el botón de enviar, intentando Enter")
                 file_input.send_keys(Keys.ENTER)
             else:
                 send_button.click()
             
             time.sleep(4)
             
-            print(f"✅ {len(file_paths)} archivo(s) enviado(s)")
+            print(f"{len(file_paths)} archivo(s) enviado(s)")
             return True
             
         except Exception as e:
-            print(f"❌ Error enviando archivos: {e}")
+            print(f"Error enviando archivos: {e}")
             return False
 
     def send_complete_message(self, phone_number, message, image_paths=None, pdf_paths=None):
@@ -455,29 +791,29 @@ class WhatsAppSender:
             
             # PASO 2: Enviar mensaje de texto
             if message and not self.send_text_message(message):
-                print("⚠️ Error enviando texto, pero se continuará con los archivos...")
+                print("Error enviando texto, pero se continuará con los archivos...")
             
             # PASO 3: Enviar imágenes
             if image_paths:
                 if not self.send_files(image_paths, "image"):
-                    print("⚠️ Error enviando imágenes.")
+                    print("Error enviando imágenes.")
             
             # PASO 4: Enviar PDFs
             if pdf_paths:
                 if not self.send_files(pdf_paths, "document"):
-                    print("⚠️ Error enviando PDFs.")
+                    print("Error enviando PDFs.")
             
-            print("✅ Mensaje completo procesado.")
+            print("Mensaje completo procesado.")
             return True
             
         except Exception as e:
-            print(f"❌ Error crítico enviando mensaje completo a {phone_number}: {e}")
+            print(f"Error crítico enviando mensaje completo a {phone_number}: {e}")
             return False
 
     def debug_page_state(self):
         """Función para debuggear el estado de la página"""
         try:
-            print("🔍 Estado actual de la página:")
+            print("Estado actual de la página:")
             print(f"URL: {self.driver.current_url}")
             print(f"Título: {self.driver.title}")
             
@@ -506,7 +842,7 @@ class WhatsAppSender:
         try:
             if self.driver:
                 self.driver.quit()
-                print("🔒 Navegador cerrado")
+                print("Navegador cerrado")
             
             # Limpiar perfiles temporales
             temp_profiles = ["chrome_temp_profile", "whatsapp_profile"]
@@ -514,12 +850,12 @@ class WhatsAppSender:
                 if os.path.exists(temp_profile):
                     try:
                         shutil.rmtree(temp_profile)
-                        print(f"🧹 Perfil temporal {temp_profile} limpiado")
+                        print(f"Perfil temporal {temp_profile} limpiado")
                     except:
                         pass  # Ignorar errores de limpieza
                         
         except Exception as e:
-            print(f"⚠️ Error cerrando navegador: {e}")
+            print(f"Error cerrando navegador: {e}")
 
     def keep_alive(self):
         """Mantiene la sesión activa"""

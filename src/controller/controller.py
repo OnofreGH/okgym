@@ -16,12 +16,12 @@ def enviar_mensajes(excel_file, mensaje, image_path, pdf_path, status_label,
     """
     if not excel_file:
         if app_running_check and app_running_check():
-            status_label.config(text="❌ Por favor selecciona un archivo de Excel")
+            status_label.config(text="Por favor selecciona un archivo de Excel")
         return
 
     if not mensaje:
         if app_running_check and app_running_check():
-            status_label.config(text="❌ Por favor escribe un mensaje")
+            status_label.config(text="Por favor escribe un mensaje")
         return
 
     try:
@@ -30,7 +30,7 @@ def enviar_mensajes(excel_file, mensaje, image_path, pdf_path, status_label,
             return
 
         if app_running_check and app_running_check():
-            status_label.config(text="📊 Leyendo archivo Excel...")
+            status_label.config(text="Leyendo archivo Excel...")
 
         df = leer_excel(excel_file)
         
@@ -39,7 +39,7 @@ def enviar_mensajes(excel_file, mensaje, image_path, pdf_path, status_label,
             return
 
         if app_running_check and app_running_check():
-            status_label.config(text="🔍 Validando números...")
+            status_label.config(text="Validando números...")
 
         validos = validar_numeros(df, normalizar_numero)
         total = len(df)
@@ -49,11 +49,11 @@ def enviar_mensajes(excel_file, mensaje, image_path, pdf_path, status_label,
             return
 
         if app_running_check and app_running_check():
-            status_label.config(text=f"📱 Números válidos: {validos}/{total}")
+            status_label.config(text=f"Números válidos: {validos}/{total}")
 
         if validos == 0:
             if app_running_check and app_running_check():
-                status_label.config(text="❌ No hay números válidos para enviar")
+                status_label.config(text="No hay números válidos para enviar")
             return
 
         # Verificar antes de iniciar envío
@@ -66,9 +66,9 @@ def enviar_mensajes(excel_file, mensaje, image_path, pdf_path, status_label,
 
         if app_running_check and app_running_check():
             if start_index > 0:
-                status_label.config(text=f"🚀 Reanudando envío desde contacto {start_index + 1}...")
+                status_label.config(text=f"Reanudando envío desde contacto {start_index + 1}...")
             else:
-                status_label.config(text="🚀 Iniciando envío de mensajes...")
+                status_label.config(text="Iniciando envío de mensajes...")
 
         # Pasar todas las funciones de verificación al módulo de envío
         enviados = send_messages(
@@ -82,13 +82,13 @@ def enviar_mensajes(excel_file, mensaje, image_path, pdf_path, status_label,
 
         if app_running_check and app_running_check():
             if enviados > 0:
-                status_label.config(text=f"✅ Mensajes enviados: {enviados}/{validos}")
+                status_label.config(text=f"Mensajes enviados: {enviados}/{validos}")
             else:
-                status_label.config(text="❌ No se pudieron enviar mensajes")
+                status_label.config(text="No se pudieron enviar mensajes")
 
     except Exception as e:
         if app_running_check and app_running_check():
-            status_label.config(text=f"❌ Error: {str(e)}")
+            status_label.config(text=f"Error: {str(e)}")
             messagebox.showerror("Error", f"Error al enviar mensajes:\n{str(e)}")
 
 def validar_y_enviar(excel_file, mensaje, status_label, message_text, iniciar_hilo, show_progress_callback=None):
