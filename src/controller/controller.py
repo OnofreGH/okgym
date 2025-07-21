@@ -1,9 +1,30 @@
 import threading
 from tkinter import messagebox
+from datetime import datetime
 
 from logic.logic import leer_excel, validar_numeros
 from logic.message import send_messages
 from logic.utils import normalizar_numero
+
+def format_fecha_preview(fecha_str):
+    """Convierte fecha de formato YYYY-MM-DD HH:MM:SS a DD/MM/YYYY para preview"""
+    try:
+        # Si viene como string, convertir a datetime
+        if isinstance(fecha_str, str):
+            # Extraer solo la parte de la fecha (sin hora)
+            fecha_parte = fecha_str.split(' ')[0]
+            fecha_obj = datetime.strptime(fecha_parte, '%Y-%m-%d')
+        elif isinstance(fecha_str, datetime):
+            fecha_obj = fecha_str
+        else:
+            # Si es otro tipo, convertir a string y procesar
+            fecha_obj = datetime.strptime(str(fecha_str).split(' ')[0], '%Y-%m-%d')
+        
+        # Formatear a DD/MM/YYYY
+        return fecha_obj.strftime('%d/%m/%Y')
+    except Exception as e:
+        print(f"Error formateando fecha para preview '{fecha_str}': {e}")
+        return str(fecha_str)  # Retornar original si hay error
 
 def enviar_mensajes(excel_file, mensaje, image_path, pdf_path, status_label, 
                    app_running_check=None, pause_check=None, progress_callback=None, start_index=0):
@@ -121,5 +142,10 @@ def obtener_mensaje_previsualizacion(excel_file, mensaje_raw):
 
     nombre = str(df.loc[0, 'NOMBRES'])
     celular = str(df.loc[0, 'CELULAR'])
-    fecha_fin = str(df.loc[0, 'FECHA FIN'])
-    return mensaje_raw.format(nombre=nombre, celular=celular, fecha_fin=fecha_fin)
+    fecha_fin_raw = df.loc[0, 'FECHA FIN']
+    
+    # Formatear la fecha para preview
+    fecha_fin = format_fecha_preview(fecha_fin_raw)
+    
+    # CORRECCIÓN: Usar replace en lugar de format
+    return mensaje_raw.replace("{nombre}", nombre).replace("{fecha_fin}", fecha_fin)

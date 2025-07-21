@@ -2,8 +2,29 @@ import pandas as pd
 import time
 import os
 import sys
+from datetime import datetime
 from logic.utils import normalizar_numero
 from logic.whatsapp_selenium import WhatsAppSender
+
+def format_fecha(fecha_str):
+    """Convierte fecha de formato YYYY-MM-DD HH:MM:SS a DD/MM/YYYY"""
+    try:
+        # Si viene como string, convertir a datetime
+        if isinstance(fecha_str, str):
+            # Extraer solo la parte de la fecha (sin hora)
+            fecha_parte = fecha_str.split(' ')[0]
+            fecha_obj = datetime.strptime(fecha_parte, '%Y-%m-%d')
+        elif isinstance(fecha_str, datetime):
+            fecha_obj = fecha_str
+        else:
+            # Si es otro tipo, convertir a string y procesar
+            fecha_obj = datetime.strptime(str(fecha_str).split(' ')[0], '%Y-%m-%d')
+        
+        # Formatear a DD/MM/YYYY
+        return fecha_obj.strftime('%d/%m/%Y')
+    except Exception as e:
+        print(f"Error formateando fecha '{fecha_str}': {e}")
+        return str(fecha_str)  # Retornar original si hay error
 
 def send_messages(excel_file, message_template, image_path=None, pdf_path=None, 
                  app_running_check=None, pause_check=None, progress_callback=None, start_index=0):
@@ -30,11 +51,15 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
     for i in range(len(df)):
         celular = normalizar_numero(df.loc[i, 'CELULAR'])
         if celular:
+            # Formatear la fecha al extraer los datos
+            fecha_fin_raw = df.loc[i, 'FECHA FIN']
+            fecha_fin_formateada = format_fecha(fecha_fin_raw)
+            
             contactos_validos.append({
                 'index': i,
                 'celular': celular,
                 'nombre': str(df.loc[i, 'NOMBRES']).strip(),
-                'fecha_fin': str(df.loc[i, 'FECHA FIN']).strip()
+                'fecha_fin': fecha_fin_formateada  # Ya formateada
             })
     
     total_validos = len(contactos_validos)
@@ -75,20 +100,58 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                 contacto = contactos_validos[contacto_idx]
                 celular = contacto['celular']
                 nombre = contacto['nombre']
-                fecha_fin = contacto['fecha_fin']
+                fecha_fin = contacto['fecha_fin']  # Ya está formateada como DD/MM/YYYY
                 
                 # Actualizar progreso con nombre del contacto
                 if progress_callback:
                     progress_callback(contacto_idx + 1, total_validos, nombre)
                 
-                # Personalizar mensaje
-                mensaje_personalizado = message_template.replace("[NOMBRE]", nombre).replace("[FECHA FIN]", fecha_fin)
+                # Personalizar mensaje con fecha ya formateada
+                mensaje_personalizado = message_template.replace("{nombre}", nombre).replace("{fecha_fin}", fecha_fin)
                 
                 print(f"Enviando mensaje a {nombre} ({celular})")
+                print(f"Fecha formateada: {fecha_fin}")  # Debug
                 
-                # Preparar archivos para envío
-                image_paths = [image_path] if image_path and os.path.exists(image_path) else None
-                pdf_paths = [pdf_path] if pdf_path and os.path.exists(pdf_path) else None
+                # CORRECCIÓN: Preparar archivos para envío correctamente
+                image_paths = None
+                pdf_paths = None
+                
+                # Verificar y preparar imagen
+                if image_path:
+                    if isinstance(image_path, str):
+                        # Si es string, verificar que existe y crear lista
+                        if os.path.exists(image_path):
+                            image_paths = [image_path]
+                        else:
+                            print(f"Imagen no encontrada: {image_path}")
+                    elif isinstance(image_path, list):
+                        # Si es lista, verificar cada elemento
+                        valid_images = []
+                        for img in image_path:
+                            if isinstance(img, str) and os.path.exists(img):
+                                valid_images.append(img)
+                        if valid_images:
+                            image_paths = valid_images
+                
+                # Verificar y preparar PDF
+                if pdf_path:
+                    if isinstance(pdf_path, str):
+                        # Si es string, verificar que existe y crear lista
+                        if os.path.exists(pdf_path):
+                            pdf_paths = [pdf_path]
+                        else:
+                            print(f"PDF no encontrado: {pdf_path}")
+                    elif isinstance(pdf_path, list):
+                        # Si es lista, verificar cada elemento
+                        valid_pdfs = []
+                        for pdf in pdf_path:
+                            if isinstance(pdf, str) and os.path.exists(pdf):
+                                valid_pdfs.append(pdf)
+                        if valid_pdfs:
+                            pdf_paths = valid_pdfs
+                
+                # Debug para verificar los tipos
+                print(f"DEBUG - Enviando con image_paths: {image_paths}, pdf_paths: {pdf_paths}")
                 
                 # Enviar mensaje completo con archivos
                 if whatsapp_sender.send_complete_message(celular, mensaje_personalizado, image_paths, pdf_paths):
