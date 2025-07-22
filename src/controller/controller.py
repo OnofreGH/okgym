@@ -136,16 +136,21 @@ def validar_y_enviar(excel_file, mensaje, status_label, message_text, iniciar_hi
         messagebox.showerror("Error", f"No se pudo validar el archivo:\n{e}")
 
 def obtener_mensaje_previsualizacion(excel_file, mensaje_raw):
+    from logic.message import normalize_text, format_fecha  # Importar funciones
+    
     df = leer_excel(excel_file)
     if df.empty:
-        raise ValueError("El archivo Excel está vacío.")
+        raise ValueError("El archivo Excel esta vacio.")
 
-    nombre = str(df.loc[0, 'NOMBRES'])
+    nombre_raw = str(df.loc[0, 'NOMBRES'])
     celular = str(df.loc[0, 'CELULAR'])
     fecha_fin_raw = df.loc[0, 'FECHA FIN']
     
-    # Formatear la fecha para preview
-    fecha_fin = format_fecha_preview(fecha_fin_raw)
+    # Normalizar nombre para evitar problemas de codificacion
+    nombre = normalize_text(nombre_raw)
     
-    # CORRECCIÓN: Usar replace en lugar de format
+    # Formatear la fecha para preview
+    fecha_fin = format_fecha(fecha_fin_raw)
+    
+    # CORRECCION: Usar replace en lugar de format
     return mensaje_raw.replace("{nombre}", nombre).replace("{fecha_fin}", fecha_fin)

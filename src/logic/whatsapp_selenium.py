@@ -41,7 +41,7 @@ class WhatsAppSender:
         return user_data_dir, profile_dir
 
     def copy_essential_session_files(self, source_profile, dest_profile):
-        """Copia solo los archivos esenciales de la sesión, no todo el perfil"""
+        """Copia solo los archivos esenciales de la sesion, no todo el perfil"""
         essential_files = [
             "Cookies",
             "Local Storage",
@@ -80,7 +80,7 @@ class WhatsAppSender:
             print("Configurando driver de Chrome...")
             chrome_options = webdriver.ChromeOptions()
             
-            # Perfil temporal limpio (más rápido que copiar archivos)
+            # Perfil temporal limpio (mas rapido que copiar archivos)
             temp_dir = tempfile.mkdtemp(prefix="whatsapp_")
             chrome_options.add_argument(f"--user-data-dir={temp_dir}")
             
@@ -126,12 +126,12 @@ class WhatsAppSender:
             return False
 
     def setup_fallback_driver(self):
-        """Configuración de fallback completamente básica"""
+        """Configuracion de fallback completamente basica"""
         try:
             print("Usando configuracion basica de emergencia...")
             chrome_options = webdriver.ChromeOptions()
             
-            # Solo opciones básicas
+            # Solo opciones basicas
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--start-maximized")
@@ -250,7 +250,7 @@ class WhatsAppSender:
             return False
 
     def wait_for_page_load(self):
-        """Espera a que la página esté completamente cargada"""
+        """Espera a que la pagina este completamente cargada"""
         try:
             # Esperar a que desaparezcan los spinners de carga
             WebDriverWait(self.driver, 1).until_not(
@@ -260,7 +260,7 @@ class WhatsAppSender:
             pass  # Es normal que no haya spinners
         
     def open_chat_with_link(self, phone_number):
-        """Abre chat de forma optimizada con filtrado de campo de búsqueda"""
+        """Abre chat de forma optimizada con filtrado de campo de busqueda"""
         try:
             url = f"https://web.whatsapp.com/send?phone={phone_number.replace('+', '')}"
             print(f"Abriendo chat: {phone_number}")
@@ -270,9 +270,9 @@ class WhatsAppSender:
             
             # Verificar campo de mensaje disponible - PRIORIZANDO data-tab='10'
             message_selectors = [
-                # PRIORIDAD 1: Campo específico de mensaje (data-tab='10')
+                # PRIORIDAD 1: Campo especifico de mensaje (data-tab='10')
                 "//div[@contenteditable='true'][@data-tab='10']",
-                # PRIORIDAD 2: Otros selectores específicos de mensaje
+                # PRIORIDAD 2: Otros selectores especificos de mensaje
                 "//div[@role='textbox'][@contenteditable='true'][@data-lexical-editor='true']",
                 "//div[contains(@aria-label, 'Type a message')]",
                 "//div[@title='Type a message']",
@@ -284,13 +284,13 @@ class WhatsAppSender:
                     candidates = self.driver.find_elements(By.XPATH, selector)
                     
                     for candidate in candidates:
-                        # FILTRADO: Excluir explícitamente campos de búsqueda (data-tab='3')
+                        # FILTRADO: Excluir explicitamente campos de busqueda (data-tab='3')
                         data_tab = candidate.get_attribute('data-tab')
                         if data_tab == '3':
-                            print(f"Campo de búsqueda excluido: {selector}")
+                            print(f"Campo de busqueda excluido: {selector}")
                             continue
                         
-                        # Verificar que el elemento está visible y es clickeable
+                        # Verificar que el elemento esta visible y es clickeable
                         if candidate.is_displayed():
                             try:
                                 WebDriverWait(self.driver, 2).until(
@@ -321,11 +321,11 @@ class WhatsAppSender:
             return False
 
     def send_text_message(self, message):
-        """Envia mensaje de texto con priorización de data-tab='10' y filtrado de búsqueda"""
+        """Envia mensaje de texto con priorizacion de data-tab='10' y filtrado de busqueda"""
         try:
             # Selectores PRIORIZANDO data-tab='10' y excluyendo data-tab='3'
             selectors = [
-                # PRIORIDAD 1: Campo específico de mensaje (data-tab='10')
+                # PRIORIDAD 1: Campo especifico de mensaje (data-tab='10')
                 "//div[@contenteditable='true'][@data-tab='10']",
                 # PRIORIDAD 2: Campo moderno de mensaje
                 "//div[@role='textbox'][@data-lexical-editor='true']",
@@ -339,13 +339,13 @@ class WhatsAppSender:
                     candidates = self.driver.find_elements(By.XPATH, selector)
                     
                     for candidate in candidates:
-                        # FILTRADO: Excluir explícitamente campos de búsqueda
+                        # FILTRADO: Excluir explicitamente campos de busqueda
                         data_tab = candidate.get_attribute('data-tab')
                         if data_tab == '3':
-                            print(f"Campo de búsqueda excluido en envío: {selector}")
+                            print(f"Campo de busqueda excluido en envio: {selector}")
                             continue
                         
-                        # Verificar que es un campo válido para mensajes
+                        # Verificar que es un campo valido para mensajes
                         if candidate.is_displayed():
                             try:
                                 WebDriverWait(self.driver, 2).until(
@@ -365,7 +365,7 @@ class WhatsAppSender:
                 print("Campo de mensaje no encontrado")
                 return False
             
-            # Click usando JavaScript (más confiable)
+            # Click usando JavaScript (mas confiable)
             self.driver.execute_script("arguments[0].click();", message_box)
             time.sleep(0.5)
             
@@ -384,7 +384,7 @@ class WhatsAppSender:
             return False
 
     def send_files(self, file_paths, file_type="image"):
-        """Envía archivos con lógica optimizada y manejo robusto de errores"""
+        """Envia archivos con logica optimizada y manejo robusto de errores"""
         try:
             if not file_paths:
                 print("No hay archivos para enviar")
@@ -395,10 +395,10 @@ class WhatsAppSender:
             # PASO 1: Validar archivos antes de intentar enviarlos
             valid_paths = self._validate_file_paths(file_paths)
             if not valid_paths:
-                print("ERROR: No hay archivos válidos para enviar")
+                print("ERROR: No hay archivos validos para enviar")
                 return False
             
-            # PASO 2: Buscar y hacer clic en botón de adjuntar
+            # PASO 2: Buscar y hacer clic en boton de adjuntar
             attach_button = self._find_attach_button()
             if not attach_button:
                 return False
@@ -406,7 +406,7 @@ class WhatsAppSender:
             if not self._click_attach_button(attach_button):
                 return False
             
-            # PASO 3: Buscar input de archivo o botón específico del tipo
+            # PASO 3: Buscar input de archivo o boton especifico del tipo
             file_input = self._find_file_input(file_type)
             if not file_input:
                 return False
@@ -415,11 +415,11 @@ class WhatsAppSender:
             if not self._send_files_to_input(file_input, valid_paths):
                 return False
             
-            # PASO 5: Buscar y hacer clic en botón de enviar
+            # PASO 5: Buscar y hacer clic en boton de enviar
             return self._send_files_final()
             
         except Exception as e:
-            print(f"ERROR crítico en send_files: {e}")
+            print(f"ERROR critico en send_files: {e}")
             return False
 
     def _validate_file_paths(self, file_paths):
@@ -431,7 +431,7 @@ class WhatsAppSender:
                 abs_path = os.path.abspath(path)
                 if os.path.exists(abs_path) and os.path.isfile(abs_path):
                     valid_paths.append(abs_path)
-                    print(f"Archivo válido: {os.path.basename(abs_path)}")
+                    print(f"Archivo valido: {os.path.basename(abs_path)}")
                 else:
                     print(f"Archivo no encontrado: {path}")
             except Exception as e:
@@ -440,19 +440,19 @@ class WhatsAppSender:
         return valid_paths
 
     def _find_attach_button(self):
-        """Busca el botón de adjuntar con estrategia optimizada"""
-        print("Buscando botón de adjuntar...")
+        """Busca el boton de adjuntar con estrategia optimizada"""
+        print("Buscando boton de adjuntar...")
         
-        # Selectores actualizados: Agregué selectores más modernos y genéricos
+        # Selectores actualizados: Agregue selectores mas modernos y genericos
         selectors = [
-            # Selectores específicos originales
+            # Selectores especificos originales
             "//div[@title='Attach']",
             "//span[@data-icon='attach-menu-plus']/..",
             "//span[@data-icon='plus']/..",
             "//span[@data-icon='clip']/..",
             "//div[@role='button'][contains(@aria-label, 'Attach')]",
             
-            # Selectores actualizados más modernos y genéricos
+            # Selectores actualizados mas modernos y genericos
             "//button[@title='Attach' or @title='Adjuntar']",
             "//div[@role='button'][contains(@aria-label, 'Adjuntar')]",
             "//span[@data-icon='attach']/..",
@@ -460,9 +460,9 @@ class WhatsAppSender:
             "//span[contains(@data-icon, 'plus')]/..",
             "//span[contains(@data-icon, 'clip')]/..",
             "//span[contains(@data-icon, 'attach')]/..",
-            "//div[@role='button'][contains(@class, 'x1c4vz4f')]",  # Clase común de botones WA
-            "//footer//div[@role='button'][position()=1]",  # Primer botón en footer
-            "//div[contains(@class, '_amie')]//div[@role='button'][1]"  # Área de input
+            "//div[@role='button'][contains(@class, 'x1c4vz4f')]",  # Clase comun de botones WA
+            "//footer//div[@role='button'][position()=1]",  # Primer boton en footer
+            "//div[contains(@class, '_amie')]//div[@role='button'][1]"  # Area de input
         ]
         
         # Intentos con timeouts progresivos
@@ -479,7 +479,7 @@ class WhatsAppSender:
                     
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
-                            print(f"Botón de adjuntar encontrado: selector {i+1}")
+                            print(f"Boton de adjuntar encontrado: selector {i+1}")
                             return element   
                                                     
                 except TimeoutException:
@@ -499,11 +499,11 @@ class WhatsAppSender:
         return None
 
     def _debug_attach_button(self):
-        """Debug específico para el botón de adjuntar"""
+        """Debug especifico para el boton de adjuntar"""
         try:
-            print("=== DEBUG: Botón de adjuntar ===")
+            print("=== DEBUG: Boton de adjuntar ===")
             
-            # Buscar botones genéricos
+            # Buscar botones genericos
             buttons = self.driver.find_elements(By.XPATH, "//div[@role='button'] | //button")
             attach_candidates = []
             
@@ -526,7 +526,7 @@ class WhatsAppSender:
                 except:
                     continue
             
-            print(f"Candidatos para botón adjuntar: {len(attach_candidates)}")
+            print(f"Candidatos para boton adjuntar: {len(attach_candidates)}")
             for i, candidate in enumerate(attach_candidates[:5]):  # Solo primeros 5
                 print(f"  {i+1}. title='{candidate['title']}', aria='{candidate['aria_label']}', "
                       f"visible={candidate['visible']}, enabled={candidate['enabled']}")
@@ -537,11 +537,11 @@ class WhatsAppSender:
             print(f"Error en debug: {e}")
 
     def _click_attach_button(self, button):
-        """Hace clic en el botón de adjuntar de forma robusta"""
+        """Hace clic en el boton de adjuntar de forma robusta"""
         try:
-            print("Haciendo clic en botón de adjuntar...")
+            print("Haciendo clic en boton de adjuntar...")
             
-            # Asegurar que el elemento esté visible
+            # Asegurar que el elemento este visible
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
             time.sleep(0.5)
             
@@ -555,10 +555,10 @@ class WhatsAppSender:
                 self.driver.execute_script("arguments[0].click();", button)
                 print("Clic JavaScript exitoso")
             
-            # Esperar a que aparezca el menú
+            # Esperar a que aparezca el menu
             time.sleep(3)
             
-            # Verificar que el menú apareció
+            # Verificar que el menu aparecio
             menu_indicators = [
                 "//span[@data-icon='image']",
                 "//span[@data-icon='document']",
@@ -569,18 +569,18 @@ class WhatsAppSender:
             
             for indicator in menu_indicators:
                 if self.driver.find_elements(By.XPATH, indicator):
-                    print("Menú de adjuntar apareció")
+                    print("Menu de adjuntar aparecio")
                     return True
             
-            print("Menú de adjuntar no detectado, continuando...")
+            print("Menu de adjuntar no detectado, continuando...")
             return True
             
         except Exception as e:
-            print(f"Error haciendo clic en botón adjuntar: {e}")
+            print(f"Error haciendo clic en boton adjuntar: {e}")
             return False
 
     def _find_file_input(self, file_type):
-        """Busca el input de archivo según el tipo especificado"""
+        """Busca el input de archivo segun el tipo especificado"""
         print(f"Buscando input para {file_type}...")
         
         if file_type == "image":
@@ -590,8 +590,8 @@ class WhatsAppSender:
                     "//input[contains(@accept, 'image')]",  # Corregido: removed * 
                     "//input[@type='file'][contains(@accept, 'image')]"
                 ]),
-                # Estrategia 2: Hacer clic en botón de fotos
-                ("Botón Photos/Fotos", [
+                # Estrategia 2: Hacer clic en boton de fotos
+                ("Boton Photos/Fotos", [
                     "//span[@data-icon='image']/..",
                     "//div[contains(@title, 'Photos') or contains(@title, 'Fotos')]",
                     "//div[contains(@aria-label, 'Photos') or contains(@aria-label, 'Fotos')]"
@@ -599,12 +599,12 @@ class WhatsAppSender:
             ]
         else:  # document/pdf
             strategies = [
-                # Estrategia 1: Input genérico
+                # Estrategia 1: Input generico
                 ("Input documento directo", [
                     "//input[@type='file']"
                 ]),
-                # Estrategia 2: Hacer clic en botón de documentos
-                ("Botón Document/Documento", [
+                # Estrategia 2: Hacer clic en boton de documentos
+                ("Boton Document/Documento", [
                     "//span[@data-icon='document']/..",
                     "//div[contains(@title, 'Document') or contains(@title, 'Documento')]",
                     "//div[contains(@aria-label, 'Document') or contains(@aria-label, 'Documento')]"
@@ -625,7 +625,7 @@ class WhatsAppSender:
                                 print(f"Input encontrado: {selector}")
                                 return inp
                     else:
-                        # Botón que activa input
+                        # Boton que activa input
                         elements = self.driver.find_elements(By.XPATH, selector)
                         for element in elements:
                             if element.is_displayed():
@@ -637,9 +637,9 @@ class WhatsAppSender:
                                     self.driver.execute_script("arguments[0].click();", element)
                                     time.sleep(2)
                                     
-                                    # Buscar input después del clic
+                                    # Buscar input despues del clic
                                     file_input = self.driver.find_element(By.XPATH, "//input[@type='file']")
-                                    print("Input encontrado después del clic")
+                                    print("Input encontrado despues del clic")
                                     return file_input
                                     
                                 except Exception as e:
@@ -650,22 +650,22 @@ class WhatsAppSender:
                     print(f"Error con selector {selector}: {e}")
                     continue
     
-        print(f"No se encontró input para {file_type}")
+        print(f"No se encontro input para {file_type}")
         return None
 
     def _send_files_to_input(self, file_input, file_paths):
-        """Envía los archivos al input de forma optimizada"""
+        """Envia los archivos al input de forma optimizada"""
         try:
             print(f"Enviando {len(file_paths)} archivo(s) al input...")
             
-            # Preparar string de rutas (separadas por \n para múltiples archivos)
+            # Preparar string de rutas (separadas por \n para multiples archivos)
             paths_string = '\n'.join(file_paths)
             
             # Enviar rutas al input
             file_input.send_keys(paths_string)
             print("Archivos enviados al input")
             
-            # Esperar tiempo adaptativo según cantidad de archivos
+            # Esperar tiempo adaptativo segun cantidad de archivos
             wait_time = min(3 + len(file_paths), 10)  # Entre 3 y 10 segundos
             print(f"Esperando {wait_time}s para carga de archivos...")
             time.sleep(wait_time)
@@ -677,38 +677,38 @@ class WhatsAppSender:
             return False
 
     def _send_files_final(self):
-        """Envía los archivos haciendo clic en el botón de enviar"""
-        print("Buscando botón de enviar...")
+        """Envia los archivos haciendo clic en el boton de enviar"""
+        print("Buscando boton de enviar...")
         
         send_selectors = [
             "//span[@data-icon='send']/..",
             "//div[@role='button'][@aria-label='Send' or @aria-label='Enviar']",
             "//button[contains(@aria-label, 'Send') or contains(@aria-label, 'Enviar')]",
             "//div[@title='Send' or @title='Enviar']",
-            # Agregué más selectores específicos para el botón enviar
+            # Agregue mas selectores especificos para el boton enviar
             "//span[@data-icon='send-light']/..",
             "//button[@aria-label='Send']",
             "//button[@aria-label='Enviar']",
             "//div[contains(@class, 'send') and @role='button']",
-            "//footer//button[last()]",  # Último botón en footer
-            "//div[@role='button'][contains(@class, '_4sWnG')]"  # Clase común del botón enviar
+            "//footer//button[last()]",  # Ultimo boton en footer
+            "//div[@role='button'][contains(@class, '_4sWnG')]"  # Clase comun del boton enviar
         ]
         
-        # Buscar botón de enviar con timeout más largo
+        # Buscar boton de enviar con timeout mas largo
         for selector in send_selectors:
             try:
                 print(f"Probando selector: {selector}")
-                candidates = WebDriverWait(self.driver, 8).until(  # Aumenté timeout
+                candidates = WebDriverWait(self.driver, 8).until(  # Aumente timeout
                     EC.presence_of_all_elements_located((By.XPATH, selector))
                 )
                 
                 for candidate in candidates:
                     if candidate.is_displayed():
                         try:
-                            WebDriverWait(self.driver, 5).until(  # Aumenté timeout
+                            WebDriverWait(self.driver, 5).until(  # Aumente timeout
                                 EC.element_to_be_clickable(candidate)
                             )
-                            print("Botón enviar encontrado y clickeable")
+                            print("Boton enviar encontrado y clickeable")
                             
                             # Hacer clic con scroll previo
                             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", candidate)
@@ -716,7 +716,7 @@ class WhatsAppSender:
                             self.driver.execute_script("arguments[0].click();", candidate)
                             print("Archivos enviados exitosamente")
                             
-                            time.sleep(4)  # Esperar confirmación más tiempo
+                            time.sleep(4)  # Esperar confirmacion mas tiempo
                             return True
                             
                         except TimeoutException:
@@ -731,13 +731,13 @@ class WhatsAppSender:
                 continue
         
         # Fallback mejorado: buscar input file y enviar Enter
-        print("Botón enviar no encontrado, buscando input file para Enter...")
+        print("Boton enviar no encontrado, buscando input file para Enter...")
         try:
             # Buscar el input file que usamos antes
             file_inputs = self.driver.find_elements(By.XPATH, "//input[@type='file']")
             for file_input in file_inputs:
                 try:
-                    # Verificar que el input esté asociado con archivos cargados
+                    # Verificar que el input este asociado con archivos cargados
                     files_value = file_input.get_attribute('files')
                     if files_value or file_input.get_attribute('value'):
                         print("Input file con archivos encontrado, enviando Enter...")
@@ -751,8 +751,8 @@ class WhatsAppSender:
         except Exception as e:
             print(f"Error buscando input file: {e}")
     
-        # Último fallback: Enter en body
-        print("Último recurso: Enter en body...")
+        # Ultimo fallback: Enter en body
+        print("Ultimo recurso: Enter en body...")
         try:
             body = self.driver.find_element(By.TAG_NAME, "body")
             body.send_keys(Keys.ENTER)
@@ -764,7 +764,7 @@ class WhatsAppSender:
             return False
         
     def send_complete_message(self, phone_number, message, image_paths=None, pdf_paths=None):
-        """Envía un mensaje completo usando un enlace directo para abrir el chat."""
+        """Envia un mensaje completo usando un enlace directo para abrir el chat."""
         try:
             # PASO 1: Abrir chat con el enlace directo
             if not self.open_chat_with_link(phone_number):
@@ -772,12 +772,12 @@ class WhatsAppSender:
             
             # PASO 2: Enviar mensaje de texto
             if message and not self.send_text_message(message):
-                print("Error enviando texto, pero se continuará con los archivos...")
+                print("Error enviando texto, pero se continuara con los archivos...")
             
-            # PASO 3: Enviar imágenes
+            # PASO 3: Enviar imagenes
             if image_paths:
                 if not self.send_files(image_paths, "image"):
-                    print("Error enviando imágenes.")
+                    print("Error enviando imagenes.")
             
             # PASO 4: Enviar PDFs
             if pdf_paths:
@@ -788,24 +788,24 @@ class WhatsAppSender:
             return True
             
         except Exception as e:
-            print(f"Error crítico enviando mensaje completo a {phone_number}: {e}")
+            print(f"Error critico enviando mensaje completo a {phone_number}: {e}")
             return False
 
     def debug_page_state(self):
-        """Función para debuggear el estado de la página"""
+        """Funcion para debuggear el estado de la pagina"""
         try:
-            print("Estado actual de la página:")
+            print("Estado actual de la pagina:")
             print(f"URL: {self.driver.current_url}")
-            print(f"Título: {self.driver.title}")
+            print(f"Titulo: {self.driver.title}")
             
             # Buscar elementos comunes
             elements_to_check = [
                 ("Canvas QR", "//canvas"),
-                ("Campo búsqueda 1", "//div[@contenteditable='true'][@data-tab='3']"),
-                ("Campo búsqueda 2", "//div[@title='Search input textbox']"),
+                ("Campo busqueda 1", "//div[@contenteditable='true'][@data-tab='3']"),
+                ("Campo busqueda 2", "//div[@title='Search input textbox']"),
                 ("Campo mensaje 1", "//div[@contenteditable='true'][@data-tab='10']"),
                 ("Campo mensaje 2", "//div[contains(@aria-label, 'Type a message')]"),
-                ("Botón adjuntar", "//div[@title='Attach']")
+                ("Boton adjuntar", "//div[@title='Attach']")
             ]
             
             for name, xpath in elements_to_check:
@@ -839,7 +839,7 @@ class WhatsAppSender:
             print(f"Error cerrando navegador: {e}")
 
     def keep_alive(self):
-        """Mantiene la sesión activa"""
+        """Mantiene la sesion activa"""
         try:
             self.driver.execute_script("console.log('keep alive');")
             return True
