@@ -122,14 +122,14 @@ def validar_y_enviar(excel_file, mensaje, status_label, message_text, iniciar_hi
         validos = validar_numeros(df, normalizar_numero)
 
         if validos == 0:
-            messagebox.showwarning("Advertencia", "No se encontró ningún número válido con formato peruano.")
+            messagebox.showwarning("Advertencia", "No se encontro ningun numero valido con formato peruano.")
             return
 
         # Mostrar controles de progreso antes de iniciar
         if show_progress_callback:
             show_progress_callback(validos)
 
-        messagebox.showinfo("Validación exitosa", f"Se detectaron {validos} números válidos. Iniciando envío...")
+        messagebox.showinfo("Validacion exitosa", f"Se detectaron {validos} numeros válidos. Iniciando envío...")
         iniciar_hilo()
 
     except Exception as e:

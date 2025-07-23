@@ -4,528 +4,550 @@ from PIL import Image, ImageTk
 import os
 import threading
 import sys
+import signal
+import time
 
 from controller.controller import enviar_mensajes, validar_y_enviar, obtener_mensaje_previsualizacion
 
-# Variables globales
-excel_file = None
-excel_logo_img = None
-image_file = None
-pdf_file = None
+# Variables globales optimizadas
+class AppState:
+    def __init__(self):
+        self.excel_file = None
+        self.excel_logo_img = None
+        self.image_files = []
+        self.pdf_files = []
+        self.app_running = True
+        self.current_thread = None
+        self.sending_paused = False
+        self.last_sent_index = 0
+        self.total_contacts = 0
+        
+        # Referencias a widgets
+        self.progress_bar = None
+        self.progress_label = None
+        self.pause_button = None
+        self.send_button = None
+        self.browse_button = None
+        self.preview_button = None
+        self.message_text = None
+        self.status_label = None
+        self.image_label = None
+        self.pdf_label = None
+        self.icon_label = None
+        self.file_name_label = None
+        self.image_select_button = None
+        self.pdf_select_button = None
+        self.app = None
 
-image_files = []
-pdf_files = []
+# Instancia global del estado
+state = AppState()
 
-# Variables para control de envío
-app_running = True
-current_thread = None
-sending_paused = False
-last_sent_index = 0  # Índice del último contacto enviado
-total_contacts = 0   # Total de contactos válidos
-progress_bar = None
-progress_label = None
-pause_button = None
+# Constantes de estilo
+COLORS = {
+    'bg': "#e5e7eb",
+    'fg': "#1f2937", 
+    'primary': "#2563eb",
+    'accent': "#dbeafe",
+    'error': "#ef4444",
+    'success': "#10b981"
+}
 
-COLOR_BG = "#e5e7eb"       # gris suave
-COLOR_FG = "#1f2937"       # casi negro
-COLOR_PRIMARY = "#2563eb"  # azul moderno
-COLOR_ACCENT = "#dbeafe"   # fondo de botón activo
-FONT_BASE = ("Segoe UI", 10)
+FONTS = {
+    'base': ("Segoe UI", 10),
+    'title': ("Segoe UI", 14, "bold"),
+    'small': ("Segoe UI", 9)
+}
 
-def on_closing():
-    """Maneja el cierre de la aplicación"""
-    global app_running, current_thread
+def kill_chrome_processes():
+    """Mata todos los procesos de Chrome de forma agresiva"""
+    try:
+        import subprocess
+        import psutil
+        
+        print("Matando procesos de Chrome...")
+        
+        # Obtener todos los procesos
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                proc_name = proc.info['name'].lower()
+                cmdline = ' '.join(proc.info.get('cmdline', [])).lower()
+                
+                # Identificar procesos de Chrome relacionados con WhatsApp
+                if any(keyword in proc_name for keyword in ['chrome', 'chromium']):
+                    if any(keyword in cmdline for keyword in ['whatsapp', 'web.whatsapp', 'user-data-dir']):
+                        print(f"Matando proceso Chrome: {proc.info['pid']}")
+                        proc.terminate()
+                        
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+        
+        # Esperar un momento y forzar kill si es necesario
+        time.sleep(1)
+        
+        # Segunda pasada mas agresiva
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if 'chrome' in proc.info['name'].lower():
+                    proc.kill()
+            except:
+                continue
+                
+    except ImportError:
+        # Si psutil no esta disponible, usar comandos del sistema
+        try:
+            if os.name == 'nt':  # Windows
+                subprocess.run(['taskkill', '/f', '/im', 'chrome.exe'], capture_output=True)
+                subprocess.run(['taskkill', '/f', '/im', 'chromedriver.exe'], capture_output=True)
+            else:  # Linux/Mac
+                subprocess.run(['pkill', '-f', 'chrome'], capture_output=True)
+                subprocess.run(['pkill', '-f', 'chromedriver'], capture_output=True)
+        except:
+            pass
+    except Exception as e:
+        print(f"Error matando procesos Chrome: {e}")
+
+def emergency_cleanup():
+    """Limpieza de emergencia mas agresiva"""
+    print("Ejecutando limpieza de emergencia...")
     
-    # Preguntar confirmación si hay un hilo ejecutándose
-    if current_thread and current_thread.is_alive():
-        result = messagebox.askyesno(
-            "Confirmar cierre", 
-            "Hay un proceso de envío en curso. ¿Estás seguro de que quieres cerrar?\n\nEsto detendrá el envío de mensajes."
-        )
-        if not result:
-            return
+    # 1. Marcar que la app se esta cerrando
+    state.app_running = False
     
-    # Marcar que la aplicación se está cerrando
-    app_running = False
+    # 2. Matar procesos de Chrome
+    kill_chrome_processes()
     
-    # Intentar terminar hilos activos
-    if current_thread and current_thread.is_alive():
-        print("🛑 Cerrando aplicación, deteniendo proceso de envío...")
-        current_thread.join(timeout=2)
+    # 3. Limpiar archivos temporales
+    try:
+        import tempfile
+        import shutil
+        
+        temp_dirs = [
+            os.path.join(tempfile.gettempdir(), d) 
+            for d in os.listdir(tempfile.gettempdir()) 
+            if d.startswith('whatsapp_') or d.startswith('chrome_temp_')
+        ]
+        
+        for temp_dir in temp_dirs:
+            try:
+                shutil.rmtree(temp_dir)
+                print(f"Limpiado directorio temporal: {temp_dir}")
+            except:
+                pass
+    except:
+        pass
+
+def force_exit():
+    """Fuerza la salida completa del programa con timeout"""
+    print("Forzando salida del programa...")
     
-    # Cerrar la aplicación
-    app.quit()
-    app.destroy()
+    def emergency_exit():
+        """Salida de emergencia despues de timeout"""
+        time.sleep(2)  # Esperar 2 segundos
+        print("EMERGENCIA: Forzando salida inmediata")
+        os._exit(1)  # Salida forzada
+    
+    # Iniciar hilo de emergencia
+    emergency_thread = threading.Thread(target=emergency_exit, daemon=True)
+    emergency_thread.start()
+    
+    try:
+        if state.app:
+            state.app.quit()
+            state.app.destroy()
+    except:
+        pass
+    
+    # Salida normal
     os._exit(0)
 
-def toggle_pause():
-    """Alterna entre pausar y reanudar el envío"""
-    global sending_paused
+def cleanup_whatsapp():
+    """Limpia recursos de WhatsApp con timeout"""
+    try:
+        print("Limpiando WhatsApp...")
+        
+        # Importar y cerrar con timeout
+        def cleanup_with_timeout():
+            try:
+                from logic.whatsapp_selenium import WhatsAppSender
+                temp_sender = WhatsAppSender()
+                if hasattr(temp_sender, 'driver') and temp_sender.driver:
+                    temp_sender.close()
+                print("WhatsApp cerrado correctamente")
+            except Exception as e:
+                print(f"Error cerrando WhatsApp: {e}")
+        
+        # Ejecutar limpieza en hilo con timeout
+        cleanup_thread = threading.Thread(target=cleanup_with_timeout, daemon=True)
+        cleanup_thread.start()
+        cleanup_thread.join(timeout=1.0)  # Esperar maximo 1 segundo
+        
+        if cleanup_thread.is_alive():
+            print("Timeout en limpieza de WhatsApp, continuando...")
+            
+    except Exception as e:
+        print(f"Error en cleanup_whatsapp: {e}")
+
+def on_closing():
+    """Maneja el cierre de la aplicacion con limpieza agresiva"""
+    print("Iniciando cierre de aplicacion...")
     
-    if sending_paused:
-        # Reanudar envío
-        sending_paused = False
-        pause_button.config(text="⏸️ Pausar", bg="#ef4444", activebackground="#fecaca")
-        status_label.config(text=f"▶️ Reanudando envío desde contacto {last_sent_index + 1}...")
-        # Mantener interfaz bloqueada durante la reanudación
-        lock_interface()
+    # Deshabilitar la ventana inmediatamente
+    try:
+        if state.app:
+            state.app.withdraw()  # Ocultar ventana
+            state.app.update()
+    except:
+        pass
+    
+    # Ejecutar limpieza completa en hilo separado con timeout
+    def complete_cleanup():
+        try:
+            # 1. Marcar cierre
+            state.app_running = False
+            
+            # 2. Terminar hilo de envio (timeout muy corto)
+            if state.current_thread and state.current_thread.is_alive():
+                print("Terminando hilo de envio...")
+                state.current_thread.join(timeout=0.1)  # Solo 0.1 segundos
+            
+            # 3. Limpieza de WhatsApp (con timeout)
+            cleanup_whatsapp()
+            
+            # 4. Limpieza de emergencia
+            emergency_cleanup()
+            
+        except Exception as e:
+            print(f"Error en limpieza: {e}")
+        finally:
+            print("Limpieza completada, cerrando...")
+    
+    # Ejecutar limpieza en hilo separado
+    cleanup_thread = threading.Thread(target=complete_cleanup, daemon=True)
+    cleanup_thread.start()
+    
+    # Esperar un maximo de 1.5 segundos para la limpieza
+    cleanup_thread.join(timeout=1.5)
+    
+    # Forzar salida independientemente del estado de la limpieza
+    force_exit()
+
+def signal_handler(signum, frame):
+    """Maneja señales del sistema para cierre forzado"""
+    print(f"Señal recibida: {signum}")
+    emergency_cleanup()
+    os._exit(1)
+
+def toggle_pause():
+    """Alterna pausa/reanudacion del envio"""
+    state.sending_paused = not state.sending_paused
+    
+    if state.sending_paused:
+        state.pause_button.config(text="▶️ Reanudar", bg=COLORS['success'])
+        state.status_label.config(text=f"Envio pausado en contacto {state.last_sent_index}")
     else:
-        # Pausar envío - puede permitir edición del mensaje si se desea
-        sending_paused = True
-        pause_button.config(text="▶️ Reanudar", bg="#10b981", activebackground="#a7f3d0")
-        status_label.config(text=f"⏸️ Envío pausado en contacto {last_sent_index}. Haz clic en Reanudar para continuar.")
-        # Opcional: desbloquear mensaje durante la pausa para permitir edición
-        # unlock_interface()
+        state.pause_button.config(text="⏸️ Pausar", bg=COLORS['error'])
+        state.status_label.config(text=f"Reanudando envio desde contacto {state.last_sent_index + 1}...")
 
 def update_progress(current, total, contact_name=""):
-    """Actualiza la barra de progreso y el contador"""
-    global last_sent_index
-    
-    last_sent_index = current
+    """Actualiza progreso de forma optimizada"""
+    state.last_sent_index = current
     progress = (current / total) * 100 if total > 0 else 0
     
-    # Actualizar barra de progreso
-    if progress_bar:
-        progress_bar['value'] = progress
+    if state.progress_bar:
+        state.progress_bar['value'] = progress
     
-    # Actualizar etiqueta de progreso
-    if progress_label:
-        if contact_name:
-            progress_label.config(text=f"📤 Enviando a: {contact_name} ({current}/{total})")
-        else:
-            progress_label.config(text=f"📊 Progreso: {current}/{total} ({progress:.1f}%)")
+    if state.progress_label:
+        text = f"Enviando a: {contact_name} ({current}/{total})" if contact_name else f"Progreso: {current}/{total} ({progress:.1f}%)"
+        state.progress_label.config(text=text)
 
-def lock_interface():
-    """Bloquea la interfaz durante el envío"""
-    if message_text:
-        message_text.config(state='disabled')
+def set_interface_state(enabled=True):
+    """Controla el estado de la interfaz de forma centralizada"""
+    widget_state = 'normal' if enabled else 'disabled'
+    cursor = "" if enabled else "wait"
     
-    # También bloquear otros controles críticos
-    send_button.config(state='disabled')
-    browse_button.config(state='disabled')
-    preview_button.config(state='disabled')
-
-def unlock_interface():
-    """Desbloquea la interfaz después del envío"""
-    if message_text:
-        message_text.config(state='normal')
+    widgets_to_control = [
+        state.message_text, state.send_button, 
+        state.browse_button, state.preview_button
+    ]
     
-    # Desbloquear otros controles
-    send_button.config(state='normal')
-    browse_button.config(state='normal')
-    preview_button.config(state='normal')
-
-def disable_all_widgets(parent):
-    """Deshabilita recursivamente todos los widgets excepto el botón de pausa"""
-    for child in parent.winfo_children():
-        if hasattr(child, 'winfo_children'):
-            disable_all_widgets(child)
-        
-        # No deshabilitar el botón de pausa ni la barra de progreso
-        if child not in [pause_button, progress_bar, progress_label]:
+    for widget in widgets_to_control:
+        if widget:
             try:
-                if hasattr(child, 'config'):
-                    child.config(state='disabled')
+                widget.config(state=widget_state)
             except tk.TclError:
-                pass  # Algunos widgets no tienen estado
-
-def enable_all_widgets(parent):
-    """Habilita recursivamente todos los widgets"""
-    for child in parent.winfo_children():
-        if hasattr(child, 'winfo_children'):
-            enable_all_widgets(child)
-        
-        try:
-            if hasattr(child, 'config'):
-                child.config(state='normal')
-        except tk.TclError:
-            pass  # Algunos widgets no tienen estado
-
-def lock_interface_complete():
-    """Bloquea completamente la interfaz durante el envío"""
-    # Bloquear solo los controles críticos
-    if message_text:
-        message_text.config(state='disabled')
+                pass
     
-    send_button.config(state='disabled')
-    browse_button.config(state='disabled')
-    preview_button.config(state='disabled')
-    
-    # Cambiar cursor para indicar que está ocupado
-    app.config(cursor="wait")
-
-def unlock_interface_complete():
-    """Desbloquea completamente la interfaz después del envío"""
-    if message_text:
-        message_text.config(state='normal')
-    
-    send_button.config(state='normal')
-    browse_button.config(state='normal')
-    preview_button.config(state='normal')
-    
-    # Restaurar cursor normal
-    app.config(cursor="")
+    if state.app:
+        state.app.config(cursor=cursor)
 
 def reset_progress():
-    """Resetea el progreso y oculta los controles"""
-    global last_sent_index, sending_paused, total_contacts
+    """Resetea progreso y restaura interfaz"""
+    state.last_sent_index = 0
+    state.sending_paused = False
+    state.total_contacts = 0
     
-    last_sent_index = 0
-    sending_paused = False
-    total_contacts = 0
+    set_interface_state(True)
     
-    # Usar desbloqueo completo
-    unlock_interface_complete()
-    
-    if progress_bar:
-        progress_bar['value'] = 0
-        progress_bar.grid_remove()
-    
-    if progress_label:
-        progress_label.config(text="")
-        progress_label.grid_remove()
-    
-    if pause_button:
-        pause_button.grid_remove()
+    for widget in [state.progress_bar, state.progress_label, state.pause_button]:
+        if widget:
+            widget.grid_remove()
 
 def show_progress_controls(total):
-    """Muestra los controles de progreso y bloquea la interfaz"""
-    global total_contacts
+    """Muestra controles de progreso"""
+    state.total_contacts = total
+    set_interface_state(False)
     
-    total_contacts = total
+    if state.progress_bar:
+        state.progress_bar.grid(row=11, column=0, sticky="ew", pady=(5, 0))
     
-    # Usar bloqueo completo
-    lock_interface_complete()
+    if state.progress_label:
+        state.progress_label.grid(row=12, column=0, sticky="w", pady=(2, 0))
     
-    if progress_bar:
-        progress_bar.grid(row=11, column=0, sticky="ew", pady=(5, 0))
-    
-    if progress_label:
-        progress_label.grid(row=12, column=0, sticky="w", pady=(2, 0))
-    
-    if pause_button:
-        pause_button.config(text="⏸️ Pausar", bg="#ef4444", activebackground="#fecaca")
-        pause_button.grid(row=13, column=0, sticky="w", pady=(5, 0))
+    if state.pause_button:
+        state.pause_button.config(text="⏸️ Pausar", bg=COLORS['error'])
+        state.pause_button.grid(row=13, column=0, sticky="w", pady=(5, 0))
 
-def update_icon(importado, nombre_archivo=None):
-    if importado and nombre_archivo:
-        icon_label.config(image=excel_logo_img, text="")
-        file_name_label.config(text=os.path.basename(nombre_archivo))
+def update_icon(imported, filename=None):
+    """Actualiza icono de archivo Excel"""
+    if imported and filename:
+        state.icon_label.config(image=state.excel_logo_img, text="")
+        state.file_name_label.config(text=os.path.basename(filename))
     else:
-        icon_label.config(image="", text="No importado")
-        file_name_label.config(text="")
+        state.icon_label.config(image="", text="No importado")
+        state.file_name_label.config(text="")
 
-def seleccionar_archivo(tipo, extensiones, label, set_var_func):
-    multiple = tipo.lower().startswith("imagen") or tipo.lower().startswith("pdf")
+def handle_file_selection(file_type, extensions, is_multiple=True):
+    """Maneja seleccion de archivos de forma unificada"""
+    file_dialog = filedialog.askopenfilenames if is_multiple else filedialog.askopenfilename
+    file_paths = file_dialog(filetypes=[(file_type, extensions)])
     
-    if multiple:
-        file_paths = filedialog.askopenfilenames(filetypes=[(tipo, extensiones)])
+    if not file_paths:
+        return None
+    
+    return list(file_paths) if is_multiple else file_paths
+
+def update_file_label(label, file_type, files):
+    """Actualiza etiquetas de archivos seleccionados"""
+    if not files:
+        label.config(text=f"Sin {file_type.lower()}", fg="gray")
+        return
+    
+    if isinstance(files, list) and len(files) > 1:
+        count = len(files)
+        names = "\n".join(os.path.basename(f) for f in files)
+        plural = file_type.lower() + ("es" if file_type.lower().endswith("f") else "s")
+        label.config(text=f"{count} {plural} seleccionados:\n{names}", fg=COLORS['fg'])
     else:
-        file_paths = filedialog.askopenfilename(filetypes=[(tipo, extensiones)])
-
-    if file_paths:
-        set_var_func(file_paths)
-        if multiple:
-            count = len(file_paths)
-            nombres = "\n".join(os.path.basename(p) for p in file_paths)
-            plural_tipo = tipo.lower() + ("es" if tipo.lower().endswith("f") else "s")
-            label.config(
-                text=f"{count} {plural_tipo} seleccionad{'as' if tipo.lower() == 'imagen' else 'os'}:\n{nombres}",
-                foreground=COLOR_FG
-            )
-        else:
-            label.config(text=os.path.basename(file_paths), foreground=COLOR_FG)
-    else:
-        set_var_func([] if multiple else None)
-        label.config(text=f"Sin {tipo.lower()}", foreground="gray")
-
-def crear_seccion_archivo(frame, tipo, extensiones, seleccionar_func, quitar_func, label_var, row, column):
-    section = tk.Frame(frame, bg=COLOR_BG)
-    section.grid(row=row, column=column, padx=10, pady=5, sticky="nsew")
-
-    tk.Label(section, text=f"{tipo} opcional", font=FONT_BASE, bg=COLOR_BG, fg=COLOR_FG).pack(anchor="w")
-
-    btn_frame = tk.Frame(section, bg=COLOR_BG)
-    btn_frame.pack(anchor="w", pady=2, fill="x")
-
-    btn_select = tk.Button(btn_frame, text=f"Seleccionar {tipo.lower()}", command=seleccionar_func,
-              bg=COLOR_PRIMARY, fg="white", font=FONT_BASE, bd=0, padx=10, pady=4,
-              activebackground=COLOR_ACCENT)
-    btn_select.pack(side="left", padx=(0, 10))
-
-    btn_remove = tk.Button(btn_frame, text=f"Quitar {tipo.lower()}", command=quitar_func,
-              bg="#ef4444", fg="white", font=FONT_BASE, bd=0, padx=10, pady=4,
-              activebackground="#fecaca")
-    btn_remove.pack(side="left")
-
-    label = tk.Label(section, text=f"Sin {tipo.lower()}", font=("Segoe UI", 9), fg="gray", bg=COLOR_BG, anchor="w")
-    label.pack(anchor="w", pady=2, fill="x")
-    label_var.append(label)
-
-    return btn_select  # Retorna el botón seleccionar
+        filename = files[0] if isinstance(files, list) else files
+        label.config(text=os.path.basename(filename), fg=COLORS['fg'])
 
 def browse_file():
-    global excel_file
+    """Selecciona archivo Excel con conversion automatica"""
     filename = filedialog.askopenfilename(filetypes=[("Archivos de Excel", "*.xls *.xlsx")])
-    if filename:
-        # Verificar si es .xls y convertir automáticamente
-        if filename.lower().endswith('.xls'):
-            try:
-                from logic.logic import convertir_xls_a_xlsx
-                messagebox.showinfo("Conversión", "Archivo .xls detectado. Convirtiendo automáticamente a .xlsx...")
-                
-                # Convertir el archivo y actualizar la variable excel_file
-                archivo_convertido = convertir_xls_a_xlsx(filename)
-                excel_file = archivo_convertido
-                
-                # Actualizar la interfaz con el archivo convertido
-                update_icon(True, archivo_convertido)
-                messagebox.showinfo("Éxito", f"Archivo convertido exitosamente:\n{os.path.basename(archivo_convertido)}")
-                
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo convertir el archivo:\n{e}")
-                excel_file = None
-                update_icon(False)
-        else:
-            # Si es .xlsx, usar directamente
-            excel_file = filename
-            update_icon(True, filename)
-    else:
-        excel_file = None
+    if not filename:
+        state.excel_file = None
         update_icon(False)
+        return
+    
+    if filename.lower().endswith('.xls'):
+        try:
+            from logic.logic import convertir_xls_a_xlsx
+            messagebox.showinfo("Conversion", "Convirtiendo archivo .xls a .xlsx...")
+            
+            converted_file = convertir_xls_a_xlsx(filename)
+            state.excel_file = converted_file
+            update_icon(True, converted_file)
+            messagebox.showinfo("Exito", f"Archivo convertido: {os.path.basename(converted_file)}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo convertir el archivo:\n{e}")
+            state.excel_file = None
+            update_icon(False)
+    else:
+        state.excel_file = filename
+        update_icon(True, filename)
 
 def browse_image():
-    seleccionar_archivo(
-        "Imagen", "*.png;*.jpg;*.jpeg", image_label,
-        lambda paths: globals().__setitem__('image_files', list(paths) if paths else [])
-    )
-    if image_files:
-        pdf_select_button.config(state='disabled')  # Deshabilitar PDF
+    """Selecciona imagenes"""
+    files = handle_file_selection("Imagen", "*.png;*.jpg;*.jpeg")
+    if files:
+        state.image_files = files
+        update_file_label(state.image_label, "Imagen", files)
+    else:
+        remove_image()
 
 def browse_pdf():
-    seleccionar_archivo(
-        "PDF", "*.pdf", pdf_label,
-        lambda paths: globals().__setitem__('pdf_files', list(paths) if paths else [])
-    )
-    if pdf_files:
-        image_select_button.config(state='disabled')  # Deshabilitar imagen
+    """Selecciona PDFs"""
+    files = handle_file_selection("PDF", "*.pdf")
+    if files:
+        state.pdf_files = files
+        update_file_label(state.pdf_label, "PDF", files)
+    else:
+        remove_pdf()
 
 def remove_image():
-    globals()['image_files'] = []
-    image_label.config(text="Sin imagen", fg="gray")
-    pdf_select_button.config(state='normal')  # Volver a habilitar PDF
+    """Remueve imagenes seleccionadas"""
+    state.image_files = []
+    update_file_label(state.image_label, "Imagen", [])
 
 def remove_pdf():
-    globals()['pdf_files'] = []
-    pdf_label.config(text="Sin PDF", fg="gray")
-    image_select_button.config(state='normal')  # Volver a habilitar imagen
-
-    globals()['pdf_files'] = []
-    pdf_label.config(text="Sin PDF", fg="gray")
+    """Remueve PDFs seleccionados"""
+    state.pdf_files = []
+    update_file_label(state.pdf_label, "PDF", [])
 
 def send_in_thread():
-    """Ejecuta el envío en un hilo separado con control de cierre"""
-    global current_thread, app_running, sending_paused, last_sent_index
-    
-    mensaje = message_text.get("1.0", tk.END).strip()
+    """Ejecuta envio en hilo separado optimizado"""
+    mensaje = state.message_text.get("1.0", tk.END).strip()
     
     def envio_controlado():
         try:
-            # Función que verifica si debe continuar
-            def should_continue():
-                return app_running and not sending_paused
-            
-            # Función para actualizar progreso desde el controlador
             def update_progress_callback(current, total, contact_name=""):
-                if app_running:
-                    app.after(0, lambda: update_progress(current, total, contact_name))
+                if state.app_running:
+                    state.app.after(0, lambda: update_progress(current, total, contact_name))
             
-            # Pasar todas las funciones de callback al controlador
             enviar_mensajes(
-                excel_file, mensaje, image_files, pdf_files, status_label,
-                app_running_check=lambda: app_running,
-                pause_check=lambda: not sending_paused,
+                state.excel_file, mensaje, state.image_files, state.pdf_files, 
+                state.status_label,
+                app_running_check=lambda: state.app_running,
+                pause_check=lambda: not state.sending_paused,
                 progress_callback=update_progress_callback,
-                start_index=last_sent_index
+                start_index=state.last_sent_index
             )
         except Exception as e:
-            if app_running:
-                print(f"Error en envío: {e}")
+            if state.app_running:
+                print(f"Error en envio: {e}")
         finally:
-            # Limpiar la referencia al hilo y ocultar controles
-            if app_running:
-                current_thread = None
-                app.after(0, reset_progress)
+            if state.app_running:
+                state.current_thread = None
+                state.app.after(0, reset_progress)
     
-    current_thread = threading.Thread(target=envio_controlado, daemon=True)
-    current_thread.start()
+    state.current_thread = threading.Thread(target=envio_controlado, daemon=True)
+    state.current_thread.start()
 
-def send():
-    """Validar y enviar mensajes"""
-    global current_thread, last_sent_index
-    
-    # Verificar si ya hay un proceso ejecutándose
-    if current_thread and current_thread.is_alive():
-        messagebox.showwarning("Proceso en curso", "Ya hay un proceso de envío ejecutándose. Espera a que termine o usa el botón de pausa.")
+def validate_and_send():
+    """Valida datos y confirma envio"""
+    if state.current_thread and state.current_thread.is_alive():
+        messagebox.showwarning("Proceso en curso", "Ya hay un envio en progreso.")
         return
     
-    mensaje = message_text.get("1.0", tk.END).strip()
-    
-    # Verificar que hay mensaje antes de continuar
+    mensaje = state.message_text.get("1.0", tk.END).strip()
     if not mensaje:
-        messagebox.showwarning("Mensaje vacío", "Por favor escribe un mensaje antes de enviar.")
+        messagebox.showwarning("Mensaje vacio", "Escribe un mensaje antes de enviar.")
         return
     
-    # Mostrar información de qué se va a enviar
-    archivos_info = []
-    if image_files:
-        archivos_info.append(f"{len(image_files)} imagen(es)")
-    if pdf_files:
-        archivos_info.append(f"{len(pdf_files)} PDF(s)")
+    # Confirmar envio con archivos - MEJORADO para mostrar ambos tipos
+    files_info = []
+    if state.image_files:
+        files_info.append(f"{len(state.image_files)} imagen(es)")
+    if state.pdf_files:
+        files_info.append(f"{len(state.pdf_files)} PDF(s)")
     
-    if archivos_info:
-        archivos_texto = " y ".join(archivos_info)
-        confirmacion = messagebox.askyesno(
-            "Confirmar envío", 
-            f"Se enviará:\n• Mensaje de texto\n• {archivos_texto}\n\n¿Continuar con el envío?"
+    if files_info:
+        archivos_texto = " y ".join(files_info)
+        confirmation = messagebox.askyesno(
+            "Confirmar envio", 
+            f"Se enviara:\n• Mensaje de texto\n• {archivos_texto}\n\n"
+            f"NOTA: Se enviaran primero las imagenes, luego los PDFs\n\nContinuar?"
         )
-        if not confirmacion:
+        if not confirmation:
             return
     
-    # Si no es una reanudación, resetear el índice
-    if not (current_thread and last_sent_index > 0):
-        last_sent_index = 0
+    if not (state.current_thread and state.last_sent_index > 0):
+        state.last_sent_index = 0
     
-    validar_y_enviar(excel_file, mensaje, status_label, message_text, send_in_thread, show_progress_controls)
+    validar_y_enviar(state.excel_file, mensaje, state.status_label, 
+                    state.message_text, send_in_thread, show_progress_controls)
 
 def preview_message():
-    if not excel_file:
-        messagebox.showwarning("Advertencia", "Por favor selecciona un archivo de Excel primero.")
+    """Previsualiza mensaje con datos del Excel"""
+    if not state.excel_file:
+        messagebox.showwarning("Advertencia", "Selecciona un archivo Excel primero.")
         return
-    mensaje_raw = message_text.get("1.0", tk.END).strip()
+    
+    mensaje_raw = state.message_text.get("1.0", tk.END).strip()
     try:
-        mensaje_final = obtener_mensaje_previsualizacion(excel_file, mensaje_raw)
-        messagebox.showinfo("Vista previa del mensaje", f"Este es el mensaje que se enviará:\n\n{mensaje_final}")
+        mensaje_final = obtener_mensaje_previsualizacion(state.excel_file, mensaje_raw)
+        messagebox.showinfo("Vista previa", f"Mensaje que se enviara:\n\n{mensaje_final}")
     except Exception as e:
-        messagebox.showerror("Error", f"No se pudo previsualizar el mensaje:\n{e}")
+        messagebox.showerror("Error", f"No se pudo previsualizar:\n{e}")
 
-def launch_app():
-    global icon_label, file_name_label, message_text, excel_logo_img, status_label
-    global image_label, pdf_label, image_file, pdf_file, app, app_running
-    global progress_bar, progress_label, pause_button
-    global send_button, browse_button, preview_button  # Agregar referencias a botones
+def create_file_section(parent, file_type, extensions, browse_func, remove_func, row, col):
+    """Crea seccion de archivos de forma optimizada"""
+    section = tk.Frame(parent, bg=COLORS['bg'])
+    section.grid(row=row, column=col, padx=10, pady=5, sticky="nsew")
+    
+    # Titulo
+    tk.Label(section, text=f"{file_type} opcional", font=FONTS['base'], 
+             bg=COLORS['bg'], fg=COLORS['fg']).pack(anchor="w")
+    
+    # Botones
+    btn_frame = tk.Frame(section, bg=COLORS['bg'])
+    btn_frame.pack(anchor="w", pady=2, fill="x")
+    
+    select_btn = tk.Button(btn_frame, text=f"Seleccionar {file_type.lower()}", 
+                          command=browse_func, bg=COLORS['primary'], fg="white", 
+                          font=FONTS['base'], bd=0, padx=10, pady=4)
+    select_btn.pack(side="left", padx=(0, 10))
+    
+    remove_btn = tk.Button(btn_frame, text=f"Quitar {file_type.lower()}", 
+                          command=remove_func, bg=COLORS['error'], fg="white", 
+                          font=FONTS['base'], bd=0, padx=10, pady=4)
+    remove_btn.pack(side="left")
+    
+    # Etiqueta de archivo
+    label = tk.Label(section, text=f"Sin {file_type.lower()}", font=FONTS['small'], 
+                    fg="gray", bg=COLORS['bg'], anchor="w")
+    label.pack(anchor="w", pady=2, fill="x")
+    
+    return select_btn, label
 
-    # Reiniciar variables de control
-    app_running = True
-    image_file = None
-    pdf_file = None
-
-    app = tk.Tk()
-    app.title("WhatsApp Sender")
-    app.geometry("1200x800")
-    app.configure(bg=COLOR_BG)
-
-    # Configurar el manejo del cierre de ventana
-    app.protocol("WM_DELETE_WINDOW", on_closing)
-
-    app.columnconfigure(0, weight=2)
-    app.columnconfigure(1, weight=1)
-    app.rowconfigure(0, weight=1)
-
-    # --- PANEL PRINCIPAL (IZQUIERDA) ---
-    main_frame = tk.Frame(app, bg=COLOR_BG)
-    main_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
-    for i in range(15):  # Aumentado para acomodar nuevos controles
-        main_frame.rowconfigure(i, weight=1)
-    main_frame.columnconfigure(0, weight=1)
-
-    # --- PANEL DE INSTRUCCIONES (DERECHA) ---
-    instructions_frame = tk.Frame(app, bg="white", relief="solid", bd=1)
-    instructions_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 20), pady=20)
-    instructions_frame.columnconfigure(0, weight=1)
-
-    # Título del panel de instrucciones
-    tk.Label(instructions_frame, text="Cómo usar el programa", 
-             font=("Segoe UI", 12, "bold"), bg="white", fg=COLOR_FG).pack(pady=10, padx=10, anchor="w")
-
-    # Crear un frame con scroll para las instrucciones
-    canvas = tk.Canvas(instructions_frame, bg="white", highlightthickness=0)
-    scrollbar = tk.Scrollbar(instructions_frame, orient="vertical", command=canvas.yview)
-    scrollable_frame = tk.Frame(canvas, bg="white")
-
-    scrollable_frame.bind(
-        "<Configure>",
-        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-    )
-
-    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+def create_instructions_panel(parent):
+    """Crea panel de instrucciones optimizado"""
+    frame = tk.Frame(parent, bg="white", relief="solid", bd=1)
+    
+    # Titulo
+    tk.Label(frame, text="Como usar el programa", font=("Segoe UI", 12, "bold"),
+             bg="white", fg=COLORS['fg']).pack(pady=10, padx=10, anchor="w")
+    
+    # Canvas con scroll
+    canvas = tk.Canvas(frame, bg="white", highlightthickness=0)
+    scrollbar = tk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+    content = tk.Frame(canvas, bg="white")
+    
+    content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.create_window((0, 0), window=content, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
-
-    # Instrucciones paso a paso
-    instrucciones = [
-        (" 1 Seleccionar archivo Excel", [
-            "• Ingresa un archivo Excel (.xls o .xlsx) se convierte automáticamente."
-            "• Verifica que aparezca el ícono ✅"
+    
+    # Instrucciones ACTUALIZADAS
+    instructions = [
+        ("1. Seleccionar Excel", ["Archivo .xls o .xlsx", "Conversion automatica"]),
+        ("2. Escribir mensaje", ["Variables: {nombre}, {fecha_fin}", "Ejemplo incluido"]),
+        ("3. Adjuntar archivos", [
+            "Imagenes (.png, .jpg, .jpeg)", 
+            "PDFs (.pdf)", 
+            "Multiples archivos de cada tipo",
+            "SE PUEDEN ENVIAR AMBOS TIPOS JUNTOS"  # NUEVA LINEA
         ]),
-        (" 2 Escribir mensaje", [
-            "• Escribe tu mensaje en el cuadro de texto",
-            "• Usa variables: {nombre}, {fecha_fin}",
-            "• Ejemplo: 'Hola {nombre}, tu membresía vence el {fecha_fin}'"
-        ]),
-        (" 3 Adjuntar archivos (opcional)", [
-            "• Selecciona imágenes (.png, .jpg, .jpeg)",
-            "• Selecciona PDFs si necesitas",
-            "• Puedes adjuntar múltiples archivos de cada tipo",
-            "• Se pueden enviar imágenes Y PDFs al mismo tiempo"
-        ]),
-        (" 4 Previsualizar", [
-            "• Haz clic en 'Previsualizar'",
-            "• Revisa cómo se verá el mensaje",
-            "• Verifica que las variables se muestren correctamente"
-        ]),
-        (" 5 Enviar mensajes", [
-            "• Haz clic en 'Enviar mensajes'",
-            "• Se abrirá WhatsApp Web automáticamente",
-            "• IMPORTANTE: Tener WhatsApp Web abierto con la cuenta de la empresa",
-            "• Espera a que se envíen todos los mensajes",
-        ])
+        ("4. Previsualizar", ["Verificar mensaje", "Comprobar variables"]),
+        ("5. Enviar", ["WhatsApp Web automatico", "No tocar durante envio"])
     ]
-
-    for titulo, pasos in instrucciones:
-        # Título de cada sección
-        titulo_label = tk.Label(scrollable_frame, text=titulo, 
-                               font=("Segoe UI", 10, "bold"), bg="white", fg=COLOR_PRIMARY)
-        titulo_label.pack(anchor="w", padx=10, pady=(10, 5))
+    
+    for title, steps in instructions:
+        tk.Label(content, text=title, font=("Segoe UI", 10, "bold"),
+                bg="white", fg=COLORS['primary']).pack(anchor="w", padx=10, pady=(10, 5))
         
-        # Pasos de cada sección
-        for paso in pasos:
-            paso_label = tk.Label(scrollable_frame, text=paso, 
-                                 font=("Segoe UI", 9), bg="white", fg=COLOR_FG, 
-                                 wraplength=250, justify="left")
-            paso_label.pack(anchor="w", padx=20, pady=1)
-
-    # Notas importantes
-    tk.Label(scrollable_frame, text="Notas importantes", 
-             font=("Segoe UI", 10, "bold"), bg="white", fg="#ef4444").pack(anchor="w", padx=10, pady=(15, 5))
-
-    notas = [
-        "• Mantén WhatsApp Web abierto durante el envío",
-        "• No uses el mouse mientras se envían mensajes",
-        "• Los números inválidos se omiten automáticamente",
-        "• Archivos .xls se convierten a .xlsx automáticamente"
-    ]
-
-    for nota in notas:
-        nota_label = tk.Label(scrollable_frame, text=nota, 
-                             font=("Segoe UI", 9), bg="white", fg="#ef4444", 
-                             wraplength=250, justify="left")
-        nota_label.pack(anchor="w", padx=20, pady=1)
-
+        for step in steps:
+            tk.Label(content, text=f"• {step}", font=FONTS['small'],
+                    bg="white", fg=COLORS['fg'], wraplength=250, 
+                    justify="left").pack(anchor="w", padx=20, pady=1)
+    
     canvas.pack(side="left", fill="both", expand=True, padx=(0, 10))
     scrollbar.pack(side="right", fill="y")
+    
+    return frame
 
-    # --- RESTO DEL CÓDIGO DEL PANEL PRINCIPAL ---
-    # Buscar el logo de Excel - compatible con PyInstaller
+def load_excel_logo():
+    """Carga logo de Excel optimizado"""
     try:
         if hasattr(sys, '_MEIPASS'):
             logo_path = os.path.join(sys._MEIPASS, "assets", "ExcelLogo.png")
@@ -536,93 +558,133 @@ def launch_app():
         if os.path.exists(logo_path):
             img = Image.open(logo_path)
             img = img.resize((48, 48), Image.LANCZOS)
-            excel_logo_img = ImageTk.PhotoImage(img)
-        else:
-            excel_logo_img = None
+            return ImageTk.PhotoImage(img)
     except Exception as e:
-        print(f"No se pudo cargar la imagen: {e}")
-        excel_logo_img = None
-
-    tk.Label(main_frame, text="Enviar mensajes por WhatsApp", font=("Segoe UI", 14, "bold"),
-             bg=COLOR_BG, fg=COLOR_FG).grid(row=0, column=0, sticky="w")
-
-    tk.Label(main_frame, text="Archivo Excel", font=FONT_BASE, bg=COLOR_BG, fg=COLOR_FG).grid(row=1, column=0, sticky="w")
-    icon_label = tk.Label(main_frame, text="No importado", font=FONT_BASE, bg=COLOR_BG, fg="gray")
-    icon_label.grid(row=2, column=0, sticky="w")
-    file_name_label = tk.Label(main_frame, text="", font=("Segoe UI", 9), bg=COLOR_BG, fg="gray")
-    file_name_label.grid(row=3, column=0, sticky="w")
-
-    # Guardar referencia al botón de seleccionar archivo
-    browse_button = tk.Button(main_frame, text="Seleccionar Excel", command=browse_file,
-              bg=COLOR_PRIMARY, fg="white", font=FONT_BASE, bd=0, padx=12, pady=6,
-              activebackground=COLOR_ACCENT)
-    browse_button.grid(row=4, column=0, sticky="w", pady=5)
-
-    tk.Label(main_frame, text="Mensaje a enviar", font=FONT_BASE, bg=COLOR_BG, fg=COLOR_FG).grid(row=5, column=0, sticky="w", pady=(10, 2))
-
-    # Cuadro de texto del mensaje con configuración inicial
-    message_text = tk.Text(main_frame, height=10, font=("Segoe UI", 10), bd=1, relief="flat", wrap="word")
-    message_text.grid(row=6, column=0, sticky="nsew")
-
-    # Guardar referencia al botón de previsualizar
-    preview_button = tk.Button(main_frame, text="Previsualizar", command=preview_message,
-              bg="#6b7280", fg="white", font=FONT_BASE, bd=0, padx=10, pady=5,
-              activebackground="#9ca3af")
-    preview_button.grid(row=7, column=0, sticky="w", pady=5)
-
-    # Guardar referencia al botón de enviar
-    send_button = tk.Button(main_frame, text="Enviar mensajes", command=send,
-              bg=COLOR_PRIMARY, fg="white", font=FONT_BASE, bd=0, padx=10, pady=7,
-              activebackground=COLOR_ACCENT)
-    send_button.grid(row=8, column=0, sticky="w", pady=5)
-
-    frame_extra = tk.Frame(main_frame, bg=COLOR_BG)
-    frame_extra.grid(row=9, column=0, sticky="nsew")
-    frame_extra.columnconfigure(0, weight=1)
-    frame_extra.columnconfigure(1, weight=1)
-
-    image_label_list = []
-    btn_img_select = crear_seccion_archivo(frame_extra, "Imagen", "*.png;*.jpg;*.jpeg", browse_image, remove_image, image_label_list, 0, 0)
-    image_label = image_label_list[0]
-
-    pdf_label_list = []
-    btn_pdf_select = crear_seccion_archivo(frame_extra, "PDF", "*.pdf", browse_pdf, remove_pdf, pdf_label_list, 0, 1)
-    pdf_label = pdf_label_list[0]
+        print(f"No se pudo cargar logo: {e}")
     
-    global image_select_button, pdf_select_button
-    image_select_button = btn_img_select
-    pdf_select_button = btn_pdf_select
+    return None
+
+def launch_app():
+    """Lanza la aplicacion optimizada"""
+    # Configurar manejadores de señales
+    try:
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+    except:
+        pass  # Señales no disponibles en Windows
     
-    status_label = tk.Label(main_frame, text="", font=("Segoe UI", 9), fg=COLOR_PRIMARY, bg=COLOR_BG)
-    status_label.grid(row=10, column=0, sticky="w", pady=10)
-
-    # --- NUEVOS CONTROLES DE PROGRESO ---
-    # Barra de progreso (inicialmente oculta)
-    progress_bar = ttk.Progressbar(main_frame, mode='determinate', length=400)
-    # No hacer grid aquí, se mostrará cuando sea necesario
-
-    # Etiqueta de progreso (inicialmente oculta)
-    progress_label = tk.Label(main_frame, text="", font=("Segoe UI", 9), fg=COLOR_FG, bg=COLOR_BG)
-    # No hacer grid aquí, se mostrará cuando sea necesario
-
-    # Botón de pausa/reanudar (inicialmente oculto)
-    pause_button = tk.Button(main_frame, text="Pausar", command=toggle_pause,
-                            bg="#ef4444", fg="white", font=FONT_BASE, bd=0, padx=10, pady=5,
-                            activebackground="#fecaca")
-    # No hacer grid aquí, se mostrará cuando sea necesario
-
-    # Configurar teclas para evitar interferencias (opcional)
+    # Reiniciar estado
+    state.__init__()
+    
+    # Crear ventana principal
+    state.app = tk.Tk()
+    state.app.title("WhatsApp Sender")
+    state.app.geometry("1200x800")
+    state.app.configure(bg=COLORS['bg'])
+    state.app.protocol("WM_DELETE_WINDOW", on_closing)
+    
+    # Configurar grid
+    state.app.columnconfigure(0, weight=2)
+    state.app.columnconfigure(1, weight=1)
+    state.app.rowconfigure(0, weight=1)
+    
+    # Panel principal
+    main_frame = tk.Frame(state.app, bg=COLORS['bg'])
+    main_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
+    for i in range(15):
+        main_frame.rowconfigure(i, weight=1)
+    main_frame.columnconfigure(0, weight=1)
+    
+    # Panel de instrucciones
+    instructions_frame = create_instructions_panel(state.app)
+    instructions_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 20), pady=20)
+    
+    # Cargar logo
+    state.excel_logo_img = load_excel_logo()
+    
+    # Titulo
+    tk.Label(main_frame, text="Enviar mensajes por WhatsApp", font=FONTS['title'],
+             bg=COLORS['bg'], fg=COLORS['fg']).grid(row=0, column=0, sticky="w")
+    
+    # Seccion Excel
+    tk.Label(main_frame, text="Archivo Excel", font=FONTS['base'], 
+             bg=COLORS['bg'], fg=COLORS['fg']).grid(row=1, column=0, sticky="w")
+    
+    state.icon_label = tk.Label(main_frame, text="No importado", font=FONTS['base'], 
+                               bg=COLORS['bg'], fg="gray")
+    state.icon_label.grid(row=2, column=0, sticky="w")
+    
+    state.file_name_label = tk.Label(main_frame, text="", font=FONTS['small'], 
+                                    bg=COLORS['bg'], fg="gray")
+    state.file_name_label.grid(row=3, column=0, sticky="w")
+    
+    state.browse_button = tk.Button(main_frame, text="Seleccionar Excel", command=browse_file,
+                                   bg=COLORS['primary'], fg="white", font=FONTS['base'], 
+                                   bd=0, padx=12, pady=6)
+    state.browse_button.grid(row=4, column=0, sticky="w", pady=5)
+    
+    # Seccion mensaje
+    tk.Label(main_frame, text="Mensaje a enviar", font=FONTS['base'], 
+             bg=COLORS['bg'], fg=COLORS['fg']).grid(row=5, column=0, sticky="w", pady=(10, 2))
+    
+    state.message_text = tk.Text(main_frame, height=10, font=("Segoe UI", 10), 
+                                bd=1, relief="flat", wrap="word")
+    state.message_text.grid(row=6, column=0, sticky="nsew")
+    
+    # Botones de accion
+    state.preview_button = tk.Button(main_frame, text="Previsualizar", command=preview_message,
+                                    bg="#6b7280", fg="white", font=FONTS['base'], 
+                                    bd=0, padx=10, pady=5)
+    state.preview_button.grid(row=7, column=0, sticky="w", pady=5)
+    
+    state.send_button = tk.Button(main_frame, text="Enviar mensajes", command=validate_and_send,
+                                 bg=COLORS['primary'], fg="white", font=FONTS['base'], 
+                                 bd=0, padx=10, pady=7)
+    state.send_button.grid(row=8, column=0, sticky="w", pady=5)
+    
+    # Seccion archivos
+    files_frame = tk.Frame(main_frame, bg=COLORS['bg'])
+    files_frame.grid(row=9, column=0, sticky="nsew")
+    files_frame.columnconfigure(0, weight=1)
+    files_frame.columnconfigure(1, weight=1)
+    
+    state.image_select_button, state.image_label = create_file_section(
+        files_frame, "Imagen", "*.png;*.jpg;*.jpeg", browse_image, remove_image, 0, 0)
+    
+    state.pdf_select_button, state.pdf_label = create_file_section(
+        files_frame, "PDF", "*.pdf", browse_pdf, remove_pdf, 0, 1)
+    
+    # Status y controles de progreso
+    state.status_label = tk.Label(main_frame, text="", font=FONTS['small'], 
+                                 fg=COLORS['primary'], bg=COLORS['bg'])
+    state.status_label.grid(row=10, column=0, sticky="w", pady=10)
+    
+    # Controles de progreso (ocultos inicialmente)
+    state.progress_bar = ttk.Progressbar(main_frame, mode='determinate', length=400)
+    state.progress_label = tk.Label(main_frame, text="", font=FONTS['small'], 
+                                   fg=COLORS['fg'], bg=COLORS['bg'])
+    state.pause_button = tk.Button(main_frame, text="Pausar", command=toggle_pause,
+                                  bg=COLORS['error'], fg="white", font=FONTS['base'], 
+                                  bd=0, padx=10, pady=5)
+    
+    # Eventos de teclado
     def on_key_press(event):
-        """Intercepta teclas durante el envío para evitar interferencias"""
-        if message_text.cget('state') == 'disabled':
-            # Si el texto está bloqueado, no permitir ninguna tecla
+        if state.message_text and state.message_text.cget('state') == 'disabled':
             return "break"
         return None
     
-    # Bind del evento de teclado
-    app.bind('<Key>', on_key_press)
-
-    # Enfocar el cuadro de mensaje al inicio
-    message_text.focus_set()
-
-    app.mainloop()
+    state.app.bind('<Key>', on_key_press)
+    
+    # Configurar foco inicial
+    if state.message_text:
+        state.message_text.focus_set()
+    
+    # Iniciar aplicacion
+    try:
+        state.app.mainloop()
+    except KeyboardInterrupt:
+        print("Interrupcion de teclado detectada")
+        on_closing()
+    except Exception as e:
+        print(f"Error en mainloop: {e}")
+        on_closing()

@@ -262,58 +262,93 @@ class WhatsAppSender:
     def open_chat_with_link(self, phone_number):
         """Abre chat de forma optimizada con filtrado de campo de busqueda"""
         try:
+            # PASO 1: Navegar a WhatsApp Web base para resetear estado
+            print("Reseteando estado de WhatsApp Web...")
+            self.driver.get("https://web.whatsapp.com")
+            time.sleep(2)
+
+            # PASO 2: Abrir chat específico
             url = f"https://web.whatsapp.com/send?phone={phone_number.replace('+', '')}"
             print(f"Abriendo chat: {phone_number}")
             
             self.driver.get(url)
             time.sleep(5)
             
-            # Verificar campo de mensaje disponible - PRIORIZANDO data-tab='10'
+            # PASO 3: Verificar campo de mensaje con estrategias múltiples
             message_selectors = [
-                # PRIORIDAD 1: Campo especifico de mensaje (data-tab='10')
+                # PRIORIDAD 1: Campo específico de mensaje (data-tab='10')
                 "//div[@contenteditable='true'][@data-tab='10']",
-                # PRIORIDAD 2: Otros selectores especificos de mensaje
-                "//div[@role='textbox'][@contenteditable='true'][@data-lexical-editor='true']",
-                "//div[contains(@aria-label, 'Type a message')]",
-                "//div[@title='Type a message']",
-                "//div[contains(@class, 'copyable-text') and @contenteditable='true']"
+                # PRIORIDAD 2: Campo moderno de mensaje con data-lexical-editor EN FOOTER
+                "//footer//div[@role='textbox'][@contenteditable='true'][@data-lexical-editor='true']",
+                # PRIORIDAD 3: Campo de mensaje por aria-label
+                "//div[contains(@aria-label, 'Type a message')][@contenteditable='true']",
+                # PRIORIDAD 4: Campo de mensaje por título
+                "//div[@title='Type a message'][@contenteditable='true']",
+                # PRIORIDAD 5: Campo genérico en footer
+                "//footer//div[@contenteditable='true']"
             ]
             
-            for selector in message_selectors:
-                try:
-                    candidates = self.driver.find_elements(By.XPATH, selector)
-                    
-                    for candidate in candidates:
-                        # FILTRADO: Excluir explicitamente campos de busqueda (data-tab='3')
-                        data_tab = candidate.get_attribute('data-tab')
-                        if data_tab == '3':
-                            print(f"Campo de busqueda excluido: {selector}")
-                            continue
-                        
-                        # Verificar que el elemento esta visible y es clickeable
-                        if candidate.is_displayed():
-                            try:
-                                WebDriverWait(self.driver, 2).until(
-                                    EC.element_to_be_clickable(candidate)
-                                )
-                                print(f"Chat abierto: {phone_number}")
-                                return True
-                            except TimeoutException:
-                                continue
+            for attempt in range(3):  # Hasta 3 intentos
+                print(f"Intento {attempt + 1} de encontrar campo de mensaje...")
                 
-                except TimeoutException:
-                    continue
+                for selector in message_selectors:
+                    try:
+                        candidates = self.driver.find_elements(By.XPATH, selector)
+                        
+                        for candidate in candidates:
+                            # FILTRADO MEJORADO: Verificar que NO sea campo de búsqueda
+                            data_tab = candidate.get_attribute('data-tab')
+                            
+                            # Excluir específicamente campos de búsqueda
+                            if data_tab == '3':
+                                print(f"Campo de búsqueda excluido (data-tab=3): {selector}")
+                                continue
+                            
+                            # Para campos con data-lexical-editor, verificar ubicación
+                            if candidate.get_attribute('data-lexical-editor'):
+                                # Verificar que esté en footer (área de mensaje)
+                                in_footer = candidate.find_elements(By.XPATH, "./ancestor::footer")
+                                in_search = candidate.find_elements(By.XPATH, "./ancestor::*[contains(@class, 'search') or contains(@data-testid, 'search')]")
+                                
+                                if in_search and not in_footer:
+                                    print(f"Campo lexical en área de búsqueda excluido: {selector}")
+                                    continue
+                            
+                            # Verificar que el elemento esté visible y clickeable
+                            if candidate.is_displayed():
+                                try:
+                                    WebDriverWait(self.driver, 3).until(
+                                        EC.element_to_be_clickable(candidate)
+                                    )
+                                    print(f"Chat abierto correctamente con: {selector}")
+                                    return True
+                                except TimeoutException:
+                                    continue
+                    
+                    except Exception as e:
+                        print(f"Error con selector {selector}: {e}")
+                        continue
+                
+                # Si no encontró nada, esperar y reintentar
+                if attempt < 2:
+                    print("Campo no encontrado, esperando y reintentando...")
+                    time.sleep(3)
+                    # Refrescar página en segundo intento
+                    if attempt == 1:
+                        print("Refrescando página...")
+                        self.driver.refresh()
+                        time.sleep(5)
             
-            # Verificar numero invalido
+            # Verificar número inválido
             invalid_indicators = self.driver.find_elements(
                 By.XPATH, "//*[contains(text(), 'phone number is invalid')]"
             )
             
             if invalid_indicators:
-                print(f"Numero invalido: {phone_number}")
+                print(f"Número inválido: {phone_number}")
                 return False
             
-            print(f"No se pudo abrir chat: {phone_number}")
+            print(f"No se pudo abrir chat después de 3 intentos: {phone_number}")
             return False
             
         except Exception as e:
@@ -323,14 +358,16 @@ class WhatsAppSender:
     def send_text_message(self, message):
         """Envia mensaje de texto con priorizacion de data-tab='10' y filtrado de busqueda"""
         try:
-            # Selectores PRIORIZANDO data-tab='10' y excluyendo data-tab='3'
+            # PASO 1: Encontrar campo de mensaje con filtrado mejorado
             selectors = [
-                # PRIORIDAD 1: Campo especifico de mensaje (data-tab='10')
+                # PRIORIDAD 1: Campo específico de mensaje (data-tab='10')
                 "//div[@contenteditable='true'][@data-tab='10']",
-                # PRIORIDAD 2: Campo moderno de mensaje
-                "//div[@role='textbox'][@data-lexical-editor='true']",
-                # PRIORIDAD 3: Otros selectores de mensaje
-                "//div[contains(@aria-label, 'Type a message')]"
+                # PRIORIDAD 2: Campo moderno EN FOOTER específicamente
+                "//footer//div[@role='textbox'][@data-lexical-editor='true']",
+                # PRIORIDAD 3: Campo por aria-label
+                "//div[contains(@aria-label, 'Type a message')][@contenteditable='true']",
+                # PRIORIDAD 4: Campo genérico en footer
+                "//footer//div[@contenteditable='true']"
             ]
             
             message_box = None
@@ -341,10 +378,20 @@ class WhatsAppSender:
                     for candidate in candidates:
                         # FILTRADO: Excluir explicitamente campos de busqueda
                         data_tab = candidate.get_attribute('data-tab')
+
+                        # Excluir campos de búsqueda
                         if data_tab == '3':
                             print(f"Campo de busqueda excluido en envio: {selector}")
                             continue
                         
+                        # Para campos lexical, verificar ubicación estricta
+                        if candidate.get_attribute('data-lexical-editor'):
+                            # DEBE estar en footer
+                            in_footer = candidate.find_elements(By.XPATH, "./ancestor::footer")
+                            if not in_footer:
+                                print(f"Campo lexical fuera de footer excluido: {selector}")
+                                continue
+
                         # Verificar que es un campo valido para mensajes
                         if candidate.is_displayed():
                             try:
@@ -365,24 +412,98 @@ class WhatsAppSender:
                 print("Campo de mensaje no encontrado")
                 return False
             
-            # Click usando JavaScript (mas confiable)
-            self.driver.execute_script("arguments[0].click();", message_box)
-            time.sleep(0.5)
+            # PASO 2: Enviar mensaje con limpieza previa
+            try:
+                # Click y limpieza
+                self.driver.execute_script("arguments[0].focus();", message_box)
+                time.sleep(0.5)
+                self.driver.execute_script("arguments[0].click();", message_box)
+                time.sleep(0.5)
+                
+                # Limpiar campo completamente
+                message_box.send_keys(Keys.CONTROL + "a")
+                time.sleep(0.2)
+                message_box.send_keys(Keys.DELETE)
+                time.sleep(0.5)
+                
+                # Escribir mensaje
+                message_box.send_keys(message)
+                time.sleep(1)
+                
+                # Enviar
+                message_box.send_keys(Keys.ENTER)
+                time.sleep(3)  # Tiempo aumentado para confirmación
+                
+                print("Mensaje enviado")
+                return True
+                
+            except Exception as e:
+                print(f"Error enviando mensaje: {e}")
+                return False
             
-            # Limpiar y escribir mensaje
-            message_box.send_keys(Keys.CONTROL + "a")
-            message_box.send_keys(Keys.DELETE)
-            message_box.send_keys(message)
-            message_box.send_keys(Keys.ENTER)
+        except Exception as e:
+            print(f"Error en send_text_message: {e}")
+            return False
+
+    def _debug_message_fields_simple(self):
+        """Debug simplificado para campos de mensaje"""
+        try:
+            print("=== DEBUG SIMPLE: Campos disponibles ===")
             
-            time.sleep(2)
-            print("Mensaje enviado")
+            # Buscar todos los campos editables
+            editable_fields = self.driver.find_elements(By.XPATH, "//div[@contenteditable='true'] | //div[@role='textbox']")
+            
+            print(f"Total campos editables: {len(editable_fields)}")
+            
+            for i, field in enumerate(editable_fields[:5], 1):  # Solo primeros 5
+                try:
+                    data_tab = field.get_attribute('data-tab') or 'N/A'
+                    aria_label = field.get_attribute('aria-label') or 'N/A'
+                    data_lexical = 'SI' if field.get_attribute('data-lexical-editor') else 'NO'
+                    visible = field.is_displayed()
+                    
+                    # Verificar si está en footer
+                    in_footer = len(field.find_elements(By.XPATH, "./ancestor::footer")) > 0
+                    
+                    print(f"  Campo {i}: data-tab={data_tab}, lexical={data_lexical}, visible={visible}, footer={in_footer}")
+                    
+                except Exception as e:
+                    print(f"  Campo {i}: Error - {e}")
+            
+            print("=== FIN DEBUG ===")
+            
+        except Exception as e:
+            print(f"Error en debug: {e}")
+
+    def _wait_for_message_load(self):
+        """Espera a que se cargue completamente la interfaz de mensajes"""
+        try:
+            print("Esperando carga completa de interfaz...")
+            
+            # Esperar que desaparezcan indicadores de carga
+            try:
+                WebDriverWait(self.driver, 5).until_not(
+                    EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'loading')]"))
+                )
+            except TimeoutException:
+                pass  # No hay indicadores de carga
+            
+            # Esperar que aparezca el footer (área de mensaje)
+            try:
+                WebDriverWait(self.driver, 8).until(
+                    EC.presence_of_element_located((By.XPATH, "//footer"))
+                )
+            except TimeoutException:
+                print("Footer no encontrado en tiempo esperado")
+            
+            time.sleep(2)  # Tiempo adicional para estabilización
+            print("Interfaz cargada")
             return True
             
         except Exception as e:
-            print(f"Error enviando mensaje: {e}")
+            print(f"Error esperando carga: {e}")
             return False
-
+    
     def send_files(self, file_paths, file_type="image"):
         """Envia archivos con logica optimizada y manejo robusto de errores"""
         try:
@@ -429,16 +550,18 @@ class WhatsAppSender:
         for path in file_paths:
             try:
                 abs_path = os.path.abspath(path)
+                
                 if os.path.exists(abs_path) and os.path.isfile(abs_path):
                     valid_paths.append(abs_path)
                     print(f"Archivo valido: {os.path.basename(abs_path)}")
                 else:
                     print(f"Archivo no encontrado: {path}")
+                    
             except Exception as e:
                 print(f"Error validando archivo {path}: {e}")
-        
+    
         return valid_paths
-
+ 
     def _find_attach_button(self):
         """Busca el boton de adjuntar con estrategia optimizada"""
         print("Buscando boton de adjuntar...")
@@ -654,19 +777,55 @@ class WhatsAppSender:
         return None
 
     def _send_files_to_input(self, file_input, file_paths):
-        """Envia los archivos al input de forma optimizada"""
+        """Envia archivos al input CON MANEJO DE UNICODE"""
         try:
             print(f"Enviando {len(file_paths)} archivo(s) al input...")
             
-            # Preparar string de rutas (separadas por \n para multiples archivos)
-            paths_string = '\n'.join(file_paths)
+            # SOLUCION: Preparar rutas con manejo de codificación
+            safe_paths = []
+            for path in file_paths:
+                try:
+                    # Asegurar que la ruta esté en formato correcto para Selenium
+                    if os.name == 'nt':  # Windows
+                        # Convertir a ruta absoluta y normalizar
+                        normalized_path = os.path.normpath(os.path.abspath(path))
+                        safe_paths.append(normalized_path)
+                    else:
+                        safe_paths.append(path)
+                except Exception as e:
+                    print(f"Error normalizando ruta {path}: {e}")
+                    continue
             
-            # Enviar rutas al input
-            file_input.send_keys(paths_string)
-            print("Archivos enviados al input")
+            if not safe_paths:
+                print("ERROR: No hay rutas válidas después de normalización")
+                return False
             
-            # Esperar tiempo adaptativo segun cantidad de archivos
-            wait_time = min(3 + len(file_paths), 10)  # Entre 3 y 10 segundos
+            # Preparar string de rutas (separadas por \n para múltiples archivos)
+            try:
+                paths_string = '\n'.join(safe_paths)
+                print(f"Rutas preparadas: {len(safe_paths)} archivos")
+                
+                # Enviar rutas al input con manejo de errores
+                file_input.send_keys(paths_string)
+                print("Archivos enviados al input exitosamente")
+                
+            except UnicodeEncodeError as unicode_error:
+                print(f"Error de Unicode enviando rutas: {unicode_error}")
+                
+                # FALLBACK: Enviar archivos uno por uno
+                print("Intentando envío individual de archivos...")
+                for i, path in enumerate(safe_paths):
+                    try:
+                        if i > 0:
+                            file_input.send_keys('\n')  # Separador para múltiples archivos
+                        file_input.send_keys(path)
+                        print(f"Archivo {i+1} enviado individualmente")
+                    except Exception as individual_error:
+                        print(f"Error enviando archivo individual {path}: {individual_error}")
+                        continue
+            
+            # Esperar tiempo adaptativo según cantidad de archivos
+            wait_time = min(3 + len(safe_paths), 10)  # Entre 3 y 10 segundos
             print(f"Esperando {wait_time}s para carga de archivos...")
             time.sleep(wait_time)
             
@@ -675,7 +834,7 @@ class WhatsAppSender:
         except Exception as e:
             print(f"Error enviando archivos al input: {e}")
             return False
-
+    
     def _send_files_final(self):
         """Envia los archivos haciendo clic en el boton de enviar"""
         print("Buscando boton de enviar...")
@@ -764,23 +923,34 @@ class WhatsAppSender:
             return False
         
     def send_complete_message(self, phone_number, message, image_paths=None, pdf_paths=None):
-        """Envia un mensaje completo usando un enlace directo para abrir el chat."""
+        """Envía un mensaje completo"""
         try:
             # PASO 1: Abrir chat con el enlace directo
             if not self.open_chat_with_link(phone_number):
                 return False
             
-            # PASO 2: Enviar mensaje de texto
+            # PASO 2: Esperar carga completa antes de proceder
+            self._wait_for_message_load()
+            
+            # PASO 3: Enviar mensaje de texto
             if message and not self.send_text_message(message):
-                print("Error enviando texto, pero se continuara con los archivos...")
+                print("Error enviando texto, pero se continuará con los archivos...")
             
-            # PASO 3: Enviar imagenes
+            # PASO 4: Enviar imágenes
             if image_paths:
+                print("Preparando envío de imágenes...")
+                time.sleep(2)
                 if not self.send_files(image_paths, "image"):
-                    print("Error enviando imagenes.")
-            
-            # PASO 4: Enviar PDFs
+                    print("Error enviando imágenes.")
+                else:
+                    time.sleep(3)
+                    # Resetear estado del DOM después de imágenes
+                    self._reset_dom_state()
+
+            # PASO 5: Enviar PDFs (SIN pre-procesamiento)
             if pdf_paths:
+                print("Preparando envío de PDFs...")
+                time.sleep(2)
                 if not self.send_files(pdf_paths, "document"):
                     print("Error enviando PDFs.")
             
@@ -788,9 +958,84 @@ class WhatsAppSender:
             return True
             
         except Exception as e:
-            print(f"Error critico enviando mensaje completo a {phone_number}: {e}")
+            print(f"Error crítico enviando mensaje completo a {phone_number}: {e}")
             return False
+        
+    def _reset_dom_state(self):
+        """Resetea el estado del DOM después de enviar archivos"""
+        try:
+            print("Reseteando estado del DOM...")
+            
+            # Hacer scroll para refrescar elementos
+            self.driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(1)
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1)
+            
+            # Forzar reflow del DOM
+            self.driver.execute_script("""
+                var elements = document.querySelectorAll('input[type="file"]');
+                elements.forEach(function(el) {
+                    if (el.offsetParent === null) {
+                        el.style.display = 'none';
+                        el.offsetHeight; // trigger reflow
+                        el.style.display = '';
+                    }
+                });
+            """)
+            
+            time.sleep(2)
+            print("Estado del DOM reseteado")
+            
+        except Exception as e:
+            print(f"Error reseteando DOM: {e}")
 
+    def _send_files_to_input(self, file_input, file_paths):
+        """Envía archivos al input de forma simple"""
+        try:
+            print(f"Enviando {len(file_paths)} archivo(s) al input...")
+            
+            # Preparar rutas simples
+            safe_paths = []
+            for path in file_paths:
+                try:
+                    if os.name == 'nt':  # Windows
+                        normalized_path = os.path.normpath(os.path.abspath(path))
+                        safe_paths.append(normalized_path)
+                    else:
+                        safe_paths.append(path)
+                except Exception as e:
+                    print(f"Error normalizando ruta {path}: {e}")
+                    continue
+            
+            if not safe_paths:
+                print("ERROR: No hay rutas válidas después de normalización")
+                return False
+            
+            # Envío directo sin manejo de Unicode especial
+            try:
+                paths_string = '\n'.join(safe_paths)
+                print(f"Rutas preparadas: {len(safe_paths)} archivos")
+                
+                # Enviar rutas al input
+                file_input.send_keys(paths_string)
+                print("Archivos enviados al input exitosamente")
+                
+            except Exception as send_error:
+                print(f"Error enviando archivos: {send_error}")
+                return False
+            
+            # Esperar tiempo adaptativo según cantidad de archivos
+            wait_time = min(3 + len(safe_paths), 10)
+            print(f"Esperando {wait_time}s para carga de archivos...")
+            time.sleep(wait_time)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error enviando archivos al input: {e}")
+            return False
+    
     def debug_page_state(self):
         """Funcion para debuggear el estado de la pagina"""
         try:
@@ -819,7 +1064,7 @@ class WhatsAppSender:
             print(f"Error en debug: {e}")
 
     def close(self):
-        """Cierra el navegador y limpia archivos temporales"""
+        """Cierra el navegador"""
         try:
             if self.driver:
                 self.driver.quit()
@@ -837,7 +1082,7 @@ class WhatsAppSender:
                         
         except Exception as e:
             print(f"Error cerrando navegador: {e}")
-
+            
     def keep_alive(self):
         """Mantiene la sesion activa"""
         try:

@@ -1,18 +1,6 @@
 import sys
 import os
 
-# Configuracion de codificacion para Windows
-if sys.platform.startswith('win'):
-    try:
-        # Configurar UTF-8 para la consola
-        os.system('chcp 65001 > nul')
-        # Configurar stdout para UTF-8 con manejo de errores
-        import io
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-    except Exception:
-        pass
-
 # Configuración para PyInstaller
 if hasattr(sys, '_MEIPASS'):
     # Si se ejecuta desde PyInstaller

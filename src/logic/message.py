@@ -198,8 +198,15 @@ def send_messages(excel_file, message_template, image_path=None, pdf_path=None,
                         if valid_pdfs:
                             pdf_paths = valid_pdfs
                 
-                # Debug para verificar los tipos
-                safe_print(f"DEBUG - Enviando con image_paths: {image_paths}, pdf_paths: {pdf_paths}")
+                # Debug para verificar los tipos - MEJORADO
+                if image_paths and pdf_paths:
+                    safe_print(f"DEBUG - Enviando AMBOS tipos: {len(image_paths)} imagen(es) y {len(pdf_paths)} PDF(s)")
+                elif image_paths:
+                    safe_print(f"DEBUG - Enviando solo imagenes: {len(image_paths)} archivo(s)")
+                elif pdf_paths:
+                    safe_print(f"DEBUG - Enviando solo PDFs: {len(pdf_paths)} archivo(s)")
+                else:
+                    safe_print("DEBUG - Sin archivos adjuntos")
                 
                 # Enviar mensaje completo con archivos
                 if whatsapp_sender.send_complete_message(celular, mensaje_personalizado, image_paths, pdf_paths):
