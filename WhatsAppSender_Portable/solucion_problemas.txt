@@ -1,0 +1,131 @@
+# Guia de Solucion de Problemas
+
+## PROBLEMAS COMUNES Y SOLUCIONES
+
+### 1. EL PROGRAMA NO ABRE
+
+**Sintomas:** Doble clic no hace nada, o aparece error inmediatamente
+
+**Soluciones:**
+1. **Ejecutar como administrador**
+   - Clic derecho en WhatsAppSender.exe
+   - Seleccionar "Ejecutar como administrador"
+
+2. **Desbloquear archivo**
+   - Clic derecho en WhatsAppSender.exe -> Propiedades
+   - En "Seguridad" marcar "Desbloquear" -> Aplicar
+
+3. **Antivirus bloqueando**
+   - Agregar excepcion en Windows Defender
+   - Desactivar antivirus temporalmente
+
+4. **Falta Visual C++ Redistributable**
+   - Descargar de Microsoft.com
+   - Instalar version 2015-2022 x64
+
+### 2. WHATSAPP WEB NO FUNCIONA
+
+**Sintomas:** No se abre navegador, o codigo QR no aparece
+
+**Soluciones:**
+1. **Abrir WhatsApp Web manualmente**
+   - Ir a web.whatsapp.com en Chrome/Edge
+   - Escanear codigo QR con el telefono
+   - Dejar abierto, luego ejecutar la aplicacion
+
+2. **Limpiar cache del navegador**
+   - Chrome: Ctrl+Shift+Del -> Borrar datos
+   - Reiniciar navegador
+
+3. **Verificar conexion**
+   - Telefono y PC en la misma red WiFi
+   - WhatsApp actualizado en el telefono
+
+### 3. NUMEROS NO VALIDOS
+
+**Sintomas:** "Numero invalido", mensajes no se envian
+
+**Soluciones:**
+1. **Formato correcto**
+   - Solo 9 digitos: 987654321
+   - Sin +51, sin espacios, sin guiones
+   - Sin parentesis, sin puntos
+
+2. **Verificar numeros reales**
+   - Probar llamando desde otro telefono
+   - Numeros deben estar registrados en WhatsApp
+
+### 4. ARCHIVOS NO SE ENVIAN
+
+**Sintomas:** Error al adjuntar PDFs o imagenes
+
+**Soluciones:**
+1. **PDFs con acentos**
+   - Renombrar archivo sin ñ, a, e, i, o, u
+   - Ejemplo: "facturacion.pdf" -> "facturacion.pdf"
+
+2. **Tamaño de archivos**
+   - Maximo 10MB por archivo
+   - Comprimir imagenes si es necesario
+
+3. **Rutas con espacios**
+   - Evitar carpetas con nombres muy largos
+   - Mover archivos a carpeta simple (ej: C:\temp\)
+
+### 5. PROGRAMA SE CIERRA INESPERADAMENTE
+
+**Sintomas:** Se cierra durante el envio
+
+**Soluciones:**
+1. **Liberar memoria**
+   - Cerrar otras aplicaciones
+   - Reiniciar PC si es necesario
+
+2. **No mover el mouse**
+   - Mantener manos alejadas durante envio
+   - No usar otras aplicaciones
+
+3. **Conexion estable**
+   - Usar cable Ethernet si es posible
+   - Cerrar descargas/streaming
+
+### 6. MENSAJES SE ENVIAN MUY LENTO
+
+**Sintomas:** Demora mucho entre mensajes
+
+**Esto es NORMAL por seguridad:**
+- WhatsApp detecta envio masivo
+- Se agregan pausas automaticas
+- Es para evitar bloqueos de cuenta
+
+**No hay solucion rapida** - Respeta los tiempos
+
+## SI NADA FUNCIONA
+
+1. **Reiniciar completamente:**
+   - Cerrar WhatsApp Sender
+   - Cerrar navegador
+   - Reiniciar PC
+   - Abrir WhatsApp Web primero
+   - Luego abrir WhatsApp Sender
+
+2. **Verificar requisitos:**
+   - Windows 10/11 actualizado
+   - 4GB RAM libre
+   - Navegador actualizado
+   - Internet estable
+
+3. **Contactar soporte:**
+   - Anotar mensaje de error exacto
+   - Describir pasos que realizaste
+   - Incluir version de Windows
+
+## ADVERTENCIAS IMPORTANTES
+
+- **No hagas spam:** Respeta a tus contactos
+- **Limites de WhatsApp:** Maximo 50-100 mensajes por dia
+- **Cuenta comercial:** Considera WhatsApp Business API para volumenes altos
+- **Backup:** Siempre respalda tu lista de contactos
+
+---
+**Tip:** Siempre prueba con 1-2 contactos antes de envio masivo

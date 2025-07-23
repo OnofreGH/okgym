@@ -1,50 +1,24 @@
 # -*- mode: python ; coding: utf-8 -*-
-# pyright: ignore
+
 
 block_cipher = None
 
+
 a = Analysis(
-    ['src/main.py'],
+    ['src\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('src/assets', 'assets'),
-    ],
-    hiddenimports=[
-        'pywhatkit',
-        'pyautogui', 
-        'pandas',
-        'pyexcel',
-        'pyexcel.plugins.xls',
-        'pyexcel.plugins.xlsx',
-        'tkinter',
-        'PIL',
-        'PIL.Image',
-        'PIL.ImageTk',
-        'openpyxl',
-        'xlrd',
-        'pygetwindow',
-        'webbrowser',
-        'urllib.parse',
-        'threading'
-    ],
+    datas=[('src/ui', 'ui'), ('src/logic', 'logic'), ('src/assets', 'assets')],
+    hiddenimports=['selenium', 'selenium.webdriver', 'selenium.webdriver.chrome', 'selenium.webdriver.chrome.service', 'selenium.webdriver.chrome.options', 'selenium.webdriver.common.by', 'selenium.webdriver.common.keys', 'selenium.webdriver.support', 'selenium.webdriver.support.ui', 'selenium.webdriver.support.expected_conditions', 'selenium.common.exceptions', 'pandas', 'openpyxl', 'openpyxl.reader.excel', 'xlrd', 'xlsxwriter', 'tkinter', 'tkinter.filedialog', 'tkinter.messagebox', 'tkinter.ttk', 'tkinter.scrolledtext', 'PIL', 'PIL.Image', 'PIL.ImageTk', 'PIL.ImageDraw', 'pyperclip', 'threading', 'webbrowser', 'tempfile', 'shutil', 'os', 'sys', 'time', 'datetime', 'pathlib', 'ui.ui', 'logic.whatsapp_selenium'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        'matplotlib',
-        'numpy.random._pickle',
-        'IPython',
-        'jupyter',
-        'pytest',
-        'test'
-    ],
+    excludes=['matplotlib', 'scipy', 'numpy.tests', 'pandas.tests', 'test', 'unittest'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
-
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -67,5 +41,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='src/assets/icon.ico',  # Agregar esta línea
+    icon=['src\\assets\\icon.ico'],
 )

@@ -1,0 +1,92 @@
+# WhatsApp Sender - Aplicacion Portable
+
+## INICIO RAPIDO
+
+1. **Ejecutar:** Doble clic en `WhatsAppSender.exe`
+2. **Preparar Excel:** Crear archivo con columnas NOMBRES, CELULAR, FECHA FIN
+3. **Enviar:** Seleccionar archivo -> Escribir mensaje -> Enviar
+
+## FORMATO EXCEL REQUERIDO
+
+| NOMBRES          | CELULAR   | FECHA FIN  |
+|------------------|-----------|------------|
+| Juan Perez       | 987654321 | 31/12/2024 |
+| Maria Gonzalez   | 976543210 | 15/01/2025 |
+
+**IMPORTANTE:**
+- Numeros de **9 digitos** (sin +51, sin espacios)
+- Fechas en formato **DD/MM/YYYY**
+- Columnas exactas: **NOMBRES**, **CELULAR**, **FECHA FIN**
+
+## MENSAJE CON VARIABLES
+
+Usa estas variables en tu mensaje:
+- `{nombre}` -> Se reemplaza por el nombre de la persona
+- `{fecha_fin}` -> Se reemplaza por la fecha de vencimiento
+
+**Ejemplo:**
+```
+Hola {nombre}, tu membresia vence el {fecha_fin}. 
+Renueva ahora para no perder el acceso!
+```
+
+## ARCHIVOS ADJUNTOS
+
+- **Imagenes:** JPG, PNG, GIF (maximo 10MB cada una)
+- **PDFs:** Evita acentos en el nombre del archivo
+- **Limite:** 10 archivos por envio
+
+## REQUISITOS TECNICOS
+
+- Windows 10/11
+- 4GB RAM minimo
+- Conexion a internet estable
+- WhatsApp activo en el telefono
+- Navegador moderno (Chrome, Edge, Firefox)
+
+## INSTRUCCIONES IMPORTANTES
+
+### Durante el envio:
+- **NO muevas el mouse** ni uses el teclado
+- Manten WhatsApp Web abierto en el navegador
+- No abras otras aplicaciones pesadas
+- Asegurate de tener buena conexion a internet
+
+### Antes de enviar:
+- Verifica que todos los numeros sean validos
+- Prueba con 1-2 contactos primero
+- Ten preparados los archivos a adjuntar
+
+## SOLUCION DE PROBLEMAS
+
+**El programa no abre:**
+- Ejecutar como administrador (clic derecho -> "Ejecutar como administrador")
+- Desactivar antivirus temporalmente
+- Verificar que no este bloqueado por Windows Defender
+
+**WhatsApp no se conecta:**
+- Abrir WhatsApp Web manualmente en el navegador
+- Escanear codigo QR con el telefono
+- Verificar conexion a internet
+
+**Numeros invalidos:**
+- Verificar formato de 9 digitos
+- Sin +51, sin guiones, sin espacios
+- Ejemplo correcto: 987654321
+
+**Archivos no se envian:**
+- PDFs: renombrar sin acentos (ñ, a, e, i, o, u)
+- Verificar tamaño < 10MB por archivo
+- Verificar que los archivos existan
+
+## CONTACTO Y SOPORTE
+
+Si tienes problemas persistentes:
+1. Leer `solucion_problemas.txt`
+2. Verificar todos los requisitos
+3. Reiniciar la aplicacion
+4. Contactar al desarrollador
+
+---
+**Version:** 1.0 | **Desarrollado para:** Envio masivo responsable de WhatsApp
+**Advertencia:** Respeta las politicas de WhatsApp y no hagas spam
